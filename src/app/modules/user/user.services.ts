@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import prisma from "../../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { ICreateUser, UpdateUserInput } from "./user.interface";
@@ -180,6 +181,24 @@ const createUserWithCard = async (data: ICreateUser) => {
         },
       });
     }
+
+    // =========================
+// CREATE VIRTUAL CARD ACCESS (ONLY VIRTUAL)
+// =========================
+if (CardType === "VIRTUAL") {
+  const token =randomBytes(32).toString("hex");
+
+  await tx.virtualCardAccess.create({
+    data: {
+      userId: user.id,
+      cardId: updatedCard.id,
+      phone: user.phone,
+      token,
+      status: "PENDING",
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+  });
+}
 
     return {
       user,
