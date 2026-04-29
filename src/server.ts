@@ -8,7 +8,7 @@ async function main() {
     console.log("Server running on port ", config.port);
   });
 
-  seedSuperAdmin();
+ await seedSuperAdmin();
 
   const exitHandler = () => {
     if (server) {

@@ -12,4 +12,4 @@ router.post(
 // 📋 Get all virtual card access records
 router.get("/virtual-card-access", VirtualCardAccessController.getVirtual);
 
-export default router;
+export const VirtualCardAccessRoutes = router;

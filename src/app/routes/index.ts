@@ -9,6 +9,7 @@ import { UserRoutes } from "../modules/user/user.route";
 import { TransactionRoutes } from "../modules/transaction/transaction.route";
 import { eventRoutes } from "../modules/event/event.route";
 import { eventQuotaRoutes } from "../modules/eventQuota/eventQuota.route";
+import { VirtualCardAccessRoutes } from "../modules/virtualCardAccess/virtualCardAccess.route";
 
 const router = Router();
 
@@ -23,6 +24,7 @@ const allRouters = [
   TransactionRoutes,
   eventRoutes,
   eventQuotaRoutes,
+  VirtualCardAccessRoutes,
 ];
 
 allRouters.forEach((route) => router.use(route));
