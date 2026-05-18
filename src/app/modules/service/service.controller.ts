@@ -12,6 +12,10 @@ const createService = catchAsync(async (req, res) => {
     payload.image = relativePath;
   }
 
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+
   const result = await ServiceServices.createServiceInDB(payload);
 
   res.status(httpStatus.OK).json({
@@ -22,7 +26,11 @@ const createService = catchAsync(async (req, res) => {
 });
 
 const getServices = catchAsync(async (req, res) => {
-  const result = await ServiceServices.getServicesFromDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await ServiceServices.getServicesFromDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,

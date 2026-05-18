@@ -7,12 +7,10 @@ const createService = z.object({
   image: z.string().optional(),
   description: z.string().optional(),
 
-  quantity: z.coerce.number().nullable().optional(),
-  usedQuantity: z.coerce.number().optional(),
-
   serviceTypeId: z.string(),
   counterId: z.string().optional(),
   staffId: z.string().optional(),
+  organizationId: z.string().optional(),
 });
 
 const updateService = z.object({
@@ -20,11 +18,10 @@ const updateService = z.object({
   price: z.number().optional(),
   image: z.string().optional(),
   description: z.string().optional(),
-  quantity: z.number().nullable().optional(),
-  usedQuantity: z.number().optional(),
   isActive: z.boolean().optional(),
   counterId: z.string().optional(),
   staffId: z.string().optional(),
+  organizationId: z.string().optional(),
 });
 
 const useServiceValidation = z.object({

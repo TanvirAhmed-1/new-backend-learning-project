@@ -16,6 +16,8 @@ const createEvent = async (data: IEvent) => {
       name: data.name,
       startDate: new Date(data.startDate),
       endDate: new Date(data.endDate),
+      organizationId: data.organizationId || null,
+      creatorId: data.creatorId || null,
     },
   });
 };
@@ -26,6 +28,8 @@ const getAllEvent = async (queryParams: Record<string, any>) => {
     status,
     fromDate,
     toDate,
+    organizationId,
+    creatorId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
@@ -44,6 +48,14 @@ const getAllEvent = async (queryParams: Record<string, any>) => {
 
   if (status) {
     where.status = status;
+  }
+
+  if (organizationId) {
+    where.organizationId = organizationId;
+  }
+
+  if (creatorId) {
+    where.creatorId = creatorId;
   }
 
   if (fromDate || toDate) {
@@ -320,6 +332,7 @@ const getEventAnalyticsFormDB = async (queryParams: Record<string, any>) => {
     status,
     fromDate,
     toDate,
+    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
@@ -339,6 +352,10 @@ const getEventAnalyticsFormDB = async (queryParams: Record<string, any>) => {
 
   if (status) {
     where.status = status;
+  }
+
+  if (organizationId) {
+    where.organizationId = organizationId;
   }
 
   if (fromDate || toDate) {

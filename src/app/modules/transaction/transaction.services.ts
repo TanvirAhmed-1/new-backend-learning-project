@@ -9,6 +9,7 @@ const getTransactionsFromDB = async (query: Record<string, any>) => {
     userId,
     cardId,
     staffId,
+    organizationId,
     fromDate,
     toDate,
     orderBy = "createdAt",
@@ -20,6 +21,8 @@ const getTransactionsFromDB = async (query: Record<string, any>) => {
 
   // 🔹 WHERE FILTER
   const where: any = {};
+
+  if (organizationId) where.organizationId = organizationId;
 
   if (type) where.type = type;
   if (userId) where.userId = userId;
@@ -119,6 +122,7 @@ const getCounterWiseSalesFormDB = async (query: any) => {
   const {
     fromDate,
     toDate,
+    organizationId,
     orderBy = "createdAt",
     sortOrder = "desc",
     page = 1,
@@ -129,6 +133,8 @@ const getCounterWiseSalesFormDB = async (query: any) => {
   const take = Number(limit);
 
   const where: any = {};
+
+  if (organizationId) where.organizationId = organizationId;
 
   if (fromDate || toDate) {
     where.createdAt = {};
@@ -197,6 +203,7 @@ const getDailyLedgerFormDB = async (query: Record<string, any>) => {
   const {
     fromDate,
     toDate,
+    organizationId,
     orderBy = "createdAt",
     sortOrder = "desc",
     page = 1,
@@ -208,6 +215,8 @@ const getDailyLedgerFormDB = async (query: Record<string, any>) => {
 
   // 🔥 1. Date Filter
   const where: any = {};
+
+  if (organizationId) where.organizationId = organizationId;
 
   if (fromDate || toDate) {
     where.createdAt = {};
@@ -337,6 +346,7 @@ const topupTransactionFromDB = async (payload: ITopupTransactionRequest) => {
         userId: user.id,
         cardId: card.id,
         eventId: user.activeEventId ?? null,
+        organizationId: payload.organizationId || null,
         staffId: staffId ?? null,
         counterId: counterId ?? null,
         type: "TOPUP",

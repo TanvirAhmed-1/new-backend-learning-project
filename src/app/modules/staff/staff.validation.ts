@@ -27,6 +27,7 @@ const createStaff = z.object({
   role: z.nativeEnum(Role),
 
   counterId: z.string().optional(),
+  organizationId: z.string().optional(),
 });
 
 const updateStaff = z.object({
@@ -36,6 +37,7 @@ const updateStaff = z.object({
   phone: z.string().length(11).optional(),
   role: z.nativeEnum(Role).optional(),
   counterId: z.string().optional(),
+  organizationId: z.string().optional(),
 });
 
 export const StaffValidation = {

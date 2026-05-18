@@ -63,6 +63,7 @@ const getAllCardFormDB = async (queryParams: Record<string, any>) => {
     cardUid,
     cardCode,
     status,
+    organizationId,
     fromDate,
     toDate,
     page = 1,
@@ -75,6 +76,10 @@ const getAllCardFormDB = async (queryParams: Record<string, any>) => {
   const take = Number(limit);
 
   const where: any = {};
+
+  if (organizationId) {
+    where.organizationId = organizationId;
+  }
 
   // 🔹 Filtering Logic
   if (cardUid) {
@@ -180,9 +185,14 @@ const getSingleCardDetailsFromDB = async (id: string) => {
   return result;
 };
 
-const getVirtualInactiveCardFromDB = async () => {
+const getVirtualInactiveCardFromDB = async (query: Record<string, any> = {}) => {
+  const { organizationId } = query;
+  const where: any = { type: "VIRTUAL", status: "INACTIVE" };
+  if (organizationId) {
+    where.organizationId = organizationId;
+  }
   const result = await prisma.card.findFirst({
-    where: { type: "VIRTUAL", status: "INACTIVE" },
+    where,
   });
   return result;
 };

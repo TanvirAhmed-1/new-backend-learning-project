@@ -1,3 +1,4 @@
 export type IServiceTypeRequest = {
-    name: string;
-  };
+  name: string;
+  organizationId?: string;
+};

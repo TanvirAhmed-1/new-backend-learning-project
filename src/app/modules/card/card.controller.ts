@@ -3,7 +3,11 @@ import catchAsync from "../../utils/catchAsync";
 import { CardServices } from "./card.services";
 
 const createCard = catchAsync(async (req, res) => {
-  const result = await CardServices.createCardInDB(req.body);
+  const payload = { ...req.body };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+  const result = await CardServices.createCardInDB(payload);
 
   res.status(httpStatus.CREATED).json({
     success: true,
@@ -13,7 +17,11 @@ const createCard = catchAsync(async (req, res) => {
 });
 
 const getAllCards = catchAsync(async (req, res) => {
-  const result = await CardServices.getAllCardFormDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await CardServices.getAllCardFormDB(query);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Cards fetched successfully",
@@ -32,7 +40,11 @@ const getSingleCardDetails = catchAsync(async (req, res) => {
 });
 
 const getVirtualInactiveCard = catchAsync(async (req, res) => {
-  const result = await CardServices.getVirtualInactiveCardFromDB();
+  const query: any = {};
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await CardServices.getVirtualInactiveCardFromDB(query);
   res.status(httpStatus.OK).json({
     success: true,
     message: "the Virtual Card fetched successfully",

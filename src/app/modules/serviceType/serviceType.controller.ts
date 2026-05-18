@@ -3,7 +3,11 @@ import catchAsync from "../../utils/catchAsync";
 import { ServiceTypeServices } from "./serviceType.services";
 
 const createServiceType = catchAsync(async (req, res) => {
-  const result = await ServiceTypeServices.createServiceTypeInDB(req.body);
+  const payload = { ...req.body };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+  const result = await ServiceTypeServices.createServiceTypeInDB(payload);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -13,7 +17,11 @@ const createServiceType = catchAsync(async (req, res) => {
 });
 
 const getAllServiceTypes = catchAsync(async (req, res) => {
-  const result = await ServiceTypeServices.getAllServiceTypesFromDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await ServiceTypeServices.getAllServiceTypesFromDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,

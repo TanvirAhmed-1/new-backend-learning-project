@@ -4,7 +4,11 @@ import catchAsync from "../../utils/catchAsync";
 import { CounterServices } from "./counter.services";
 
 const createCounter = catchAsync(async (req: Request, res: Response) => {
-  const result = await CounterServices.createCounterInDB(req.body);
+  const payload = { ...req.body };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+  const result = await CounterServices.createCounterInDB(payload);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Counter created successfully",
@@ -13,7 +17,11 @@ const createCounter = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllCounters = catchAsync(async (req: Request, res: Response) => {
-  const result = await CounterServices.getAllCountersFromDB( req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await CounterServices.getAllCountersFromDB(query);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Counters fetched successfully",

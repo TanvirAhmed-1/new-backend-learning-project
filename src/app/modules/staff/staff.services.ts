@@ -8,6 +8,7 @@ const getStaffFromDB = async (queryParams: Record<string, any>) => {
     name,
     email,
     phone,
+    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
@@ -35,6 +36,10 @@ const getStaffFromDB = async (queryParams: Record<string, any>) => {
     whereCondition.phone = {
       contains: phone,
     };
+  }
+
+  if (organizationId) {
+    whereCondition.organizationId = organizationId;
   }
 
   // 🔹 Query
@@ -163,6 +168,7 @@ export const loginUser = async (email: string, password: string) => {
     id: user.id,
     email: user.email,
     role: user.role,
+    organizationId: user.organizationId,
   };
   // 3. create token
   const token = createToken(tokenPayload);
@@ -174,6 +180,7 @@ export const loginUser = async (email: string, password: string) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      organizationId: user.organizationId,
     },
   };
 };

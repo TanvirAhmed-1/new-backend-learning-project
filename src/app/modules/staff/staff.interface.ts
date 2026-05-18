@@ -8,4 +8,5 @@ export interface IStaff {
   password: string;
   role: Role;
   counterId?: string;
+  organizationId?: string;
 }

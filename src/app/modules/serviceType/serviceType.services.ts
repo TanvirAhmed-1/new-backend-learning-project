@@ -11,7 +11,10 @@ const createServiceTypeInDB = async (data: IServiceTypeRequest) => {
   }
 
   const result = await prisma.serviceType.create({
-    data,
+    data: {
+      name: data.name,
+      organizationId: data.organizationId || null,
+    },
   });
 
   return result;
@@ -20,6 +23,7 @@ const createServiceTypeInDB = async (data: IServiceTypeRequest) => {
 const getAllServiceTypesFromDB = async (queryParams: Record<string, any>) => {
   const {
     name,
+    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
@@ -35,6 +39,10 @@ const getAllServiceTypesFromDB = async (queryParams: Record<string, any>) => {
     whereCondition.name = {
       contains: name,
     };
+  }
+
+  if (organizationId) {
+    whereCondition.organizationId = organizationId;
   }
 
   //

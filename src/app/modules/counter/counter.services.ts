@@ -9,7 +9,11 @@ const createCounterInDB = async (data: ICounterRequest) => {
     throw new Error("Counter already exists");
   }
   const result = await prisma.counter.create({
-    data,
+    data: {
+      name: data.name,
+      isActive: data.isActive,
+      organizationId: data.organizationId || null,
+    },
   });
   return result;
 };
@@ -38,6 +42,7 @@ const getAllCountersFromDB = async (queryParams: Record<string, any>) => {
   const {
     name, 
     status, 
+    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
@@ -65,6 +70,13 @@ const getAllCountersFromDB = async (queryParams: Record<string, any>) => {
     });
   }
 
+  // ৩. Organization Filter
+  if (organizationId) {
+    andConditions.push({
+      organizationId,
+    });
+  }
+
   const whereCondition = andConditions.length > 0 ? { AND: andConditions } : {};
 
   const counters = await prisma.counter.findMany({
@@ -87,6 +99,10 @@ const getAllCountersFromDB = async (queryParams: Record<string, any>) => {
     where: {
       counterId: null,
       isActive: true,
+      OR: organizationId ? [
+        { organizationId },
+        { organizationId: null }
+      ] : undefined
     },
   });
 
@@ -105,7 +121,7 @@ const getAllCountersFromDB = async (queryParams: Record<string, any>) => {
       counters,
       globalServices: globalServices.map((s) => ({
         ...s,
-        scope: "GLOBAL",
+        scope: s.organizationId ? "ORGANIZATION" : "GLOBAL",
       })),
     },
   };

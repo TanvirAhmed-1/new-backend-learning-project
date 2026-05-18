@@ -3,7 +3,16 @@ import catchAsync from "../../utils/catchAsync";
 import { EventService } from "./event.services";
 
 const createEvent = catchAsync(async (req, res) => {
-  const result = await EventService.createEvent(req.body);
+  const payload = {
+    ...req.body,
+    creatorId: req.user?.id,
+  };
+
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+
+  const result = await EventService.createEvent(payload);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -13,7 +22,13 @@ const createEvent = catchAsync(async (req, res) => {
 });
 
 const getAllEvent = catchAsync(async (req, res) => {
-  const result = await EventService.getAllEvent(req.query);
+  const query = { ...req.query };
+
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+
+  const result = await EventService.getAllEvent(query);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -84,7 +99,13 @@ const lockEventController = catchAsync(async (req, res) => {
 
 
 const getEventAnalytics = catchAsync(async (req, res) => {
-  const result = await EventService.getEventAnalyticsFormDB(req.query);
+  const query = { ...req.query };
+
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+
+  const result = await EventService.getEventAnalyticsFormDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,

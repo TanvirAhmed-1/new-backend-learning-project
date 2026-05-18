@@ -5,4 +5,5 @@ export type ITopupTransactionRequest = {
     amount: number;
     staffId?: string;
     counterId?: string;
+    organizationId?: string;
 }

@@ -41,8 +41,14 @@ const createServiceInDB = async (data: IServiceRequest) => {
 
   const result = await prisma.service.create({
     data: {
-      ...data,
-      usedQuantity: data.usedQuantity ?? 0,
+      name: data.name,
+      price: data.price,
+      image: data.image,
+      description: data.description,
+      serviceTypeId: data.serviceTypeId,
+      counterId: data.counterId,
+      staffId: data.staffId,
+      organizationId: data.organizationId || null,
     },
   });
 
@@ -56,6 +62,7 @@ const getServicesFromDB = async (queryParams: Record<string, any>) => {
     maxPrice,
     counterId,
     status,
+    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
@@ -89,6 +96,13 @@ const getServicesFromDB = async (queryParams: Record<string, any>) => {
         { counterId: counterId },
         { counterId: null }
       ],
+    });
+  }
+
+  // ৩.৫. Organization Filter
+  if (organizationId) {
+    andConditions.push({
+      organizationId,
     });
   }
 
@@ -283,17 +297,7 @@ const useServiceFromDB = async (payload: {
       },
     });
 
-    // =========================
-    // 6. UPDATE SERVICE USAGE
-    // =========================
-    await tx.service.update({
-      where: { id: serviceId },
-      data: {
-        usedQuantity: {
-          increment: qty,
-        },
-      },
-    });
+
 
     // =========================
     // 7. CREATE TRANSACTION
@@ -304,6 +308,7 @@ const useServiceFromDB = async (payload: {
         cardId: card.id,
         serviceId,
         eventId: user.activeEventId ?? null,
+        organizationId: service.organizationId ?? user.organizationId ?? null,
         type: "USAGE",
         amount: price,
         quantity: qty,

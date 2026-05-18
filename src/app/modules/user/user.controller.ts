@@ -4,7 +4,11 @@ import catchAsync from "../../utils/catchAsync";
 import { UserServices } from "./user.services";
 
 const createUser = catchAsync(async (req, res) => {
-  const result = await UserServices.createUserWithCard(req.body);
+  const payload = { ...req.body };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+  const result = await UserServices.createUserWithCard(payload);
 
   res.status(httpStatus.CREATED).json({
     success: true,
@@ -14,7 +18,11 @@ const createUser = catchAsync(async (req, res) => {
 });
 
 const getAllUsers = catchAsync(async (req, res) => {
-  const result = await UserServices.getAllUsersFromDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await UserServices.getAllUsersFromDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -57,7 +65,11 @@ const deleteUser = catchAsync(async (req, res) => {
 });
 
 const getNewCardIssuedUser = catchAsync(async (req, res) => {
-  const result = await UserServices.getNewCardIssuedUserFormDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await UserServices.getNewCardIssuedUserFormDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -78,7 +90,11 @@ const checkoutUser = catchAsync(async (req, res) => {
 });
 
 const applyUserPenalty = catchAsync(async (req, res) => {
-  const { userId, organizationId } = req.body;
+  const { userId } = req.body;
+  let organizationId = req.body.organizationId;
+  if (req.user?.role !== "SUPER_ADMIN") {
+    organizationId = req.user?.organizationId;
+  }
 
   const result = await UserServices.applyUserPenaltyFormDB(
     userId,

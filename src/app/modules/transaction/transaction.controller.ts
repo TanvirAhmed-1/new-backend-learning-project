@@ -3,7 +3,11 @@ import httpStatus from "http-status";
 import { TransactionServices } from "./transaction.services";
 
 const getTransactions = catchAsync(async (req, res) => {
-  const result = await TransactionServices.getTransactionsFromDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await TransactionServices.getTransactionsFromDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -12,7 +16,11 @@ const getTransactions = catchAsync(async (req, res) => {
   });
 });
 const getCounterWiseSales = catchAsync(async (req, res) => {
-  const result = await TransactionServices.getCounterWiseSalesFormDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await TransactionServices.getCounterWiseSalesFormDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -21,7 +29,11 @@ const getCounterWiseSales = catchAsync(async (req, res) => {
   });
 });
 const getDailyLedger = catchAsync(async (req, res) => {
-  const result = await TransactionServices.getDailyLedgerFormDB(req.query);
+  const query = { ...req.query };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    query.organizationId = req.user?.organizationId || undefined;
+  }
+  const result = await TransactionServices.getDailyLedgerFormDB(query);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -31,7 +43,11 @@ const getDailyLedger = catchAsync(async (req, res) => {
 });
 
 const topupTransaction = catchAsync(async (req, res) => {
-  const result = await TransactionServices.topupTransactionFromDB(req.body);
+  const payload = { ...req.body };
+  if (req.user?.role !== "SUPER_ADMIN") {
+    payload.organizationId = req.user?.organizationId;
+  }
+  const result = await TransactionServices.topupTransactionFromDB(payload);
 
   res.status(httpStatus.OK).json({
     success: true,

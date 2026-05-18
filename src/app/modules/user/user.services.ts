@@ -140,6 +140,7 @@ const createUserWithCard = async (data: ICreateUser) => {
           pinHash: pinHash ?? null,
           isPinSet: Boolean(pinHash),
           activeEventId: eventId ?? null,
+          organizationId: organizationId || null,
           userPresent: {
             [getToday()]: 1,
           },
@@ -211,6 +212,7 @@ const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
   const {
     type,
     phone,
+    organizationId,
     fromDate,
     toDate,
     orderBy = "updatedAt",
@@ -224,6 +226,10 @@ const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
 
   // 🔥 WHERE CONDITION
   const where: any = {};
+
+  if (organizationId) {
+    where.organizationId = organizationId;
+  }
 
   // 🔹 Phone filter (user)
   if (phone) {
@@ -286,6 +292,7 @@ const getAllUsersFromDB = async (query: Record<string, any>) => {
     type,
     phone,
     status,
+    organizationId,
     fromDate,
     toDate,
     orderBy = "createdAt",
@@ -299,6 +306,10 @@ const getAllUsersFromDB = async (query: Record<string, any>) => {
 
   // 🔥 WHERE CONDITION
   const where: any = {};
+
+  if (organizationId) {
+    where.organizationId = organizationId;
+  }
 
   // 🔹 Phone filter (user)
   if (phone) {
