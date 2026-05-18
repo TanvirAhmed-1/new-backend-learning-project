@@ -7,6 +7,7 @@ import prisma from "../utils/prisma";
 const auth = (...roles: Role[]) => {
   return catchAsync(async (req: Request, res: Response, next: NextFunction) => {
     const token = req.headers.authorization;
+    console.log("Incoming Authorization Header:", token);
     if (!token) {
       throw new Error("Unauthorized Access! Token is missing.");
     }

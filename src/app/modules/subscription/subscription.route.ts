@@ -28,7 +28,13 @@ router.post(
 );
 
 router.get(
-  "/status/:orgId?",
+  "/status",
+  auth(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
+  SubscriptionController.getOrganizationSubscription
+);
+
+router.get(
+  "/status/:orgId",
   auth(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
   SubscriptionController.getOrganizationSubscription
 );

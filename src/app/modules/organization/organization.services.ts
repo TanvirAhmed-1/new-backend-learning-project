@@ -15,7 +15,7 @@ const getOrganizationFormDB = async () => {
       },
       _count: {
         select: {
-          staff: true,
+          staffs: true,
           events: true,
           users: true,
           counters: true,

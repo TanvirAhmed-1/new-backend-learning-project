@@ -19,7 +19,7 @@ export const createUserSchema = z
       }),
     cardId: z.string().optional(),
 
-    balance: z.number().min(0, "Balance must be positive"),
+    balance: z.coerce.number().min(0, "Balance must be positive"),
 
     CardType: CardTypeEnum.optional(),
     eventId: z.string().optional(),
@@ -41,7 +41,7 @@ export const createUserSchema = z
 
 export const checkoutUserSchema = z.object({
   userId: z.string({ message: "User ID is required" }),
-  amount: z.number({ message: "Amount is required" }),
+  amount: z.coerce.number({ message: "Amount is required" }),
 });
 
 export const applyUserPenaltySchema = z.object({

@@ -148,7 +148,7 @@ const deleteStaffFromDB = async (id: string) => {
   return result;
 };
 
-export const loginUser = async (email: string, password: string) => {
+ const loginUser = async (email: string, password: string) => {
   // 1. find user
   const user = await prisma.staff.findUnique({
     where: { email },

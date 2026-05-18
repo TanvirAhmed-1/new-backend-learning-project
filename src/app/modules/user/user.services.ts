@@ -19,7 +19,7 @@ const createUserWithCard = async (data: ICreateUser) => {
 
   return await prisma.$transaction(async (tx: any) => {
     if (organizationId) {
-      const organization = await prisma.organization.findUnique({
+      const organization = await tx.organization.findUnique({
         where: { id: organizationId },
       });
       if (!organization) {
@@ -27,7 +27,7 @@ const createUserWithCard = async (data: ICreateUser) => {
       }
     }
     if (eventId) {
-      const event = await prisma.event.findUnique({
+      const event = await tx.event.findUnique({
         where: { id: eventId },
       });
       if (!event) {
@@ -167,6 +167,9 @@ const createUserWithCard = async (data: ICreateUser) => {
     // TRANSACTION
     // =========================
     if (balance > 0) {
+      const before = existingUser ? Number(existingUser.balance) : 0;
+      const after = before + Number(balance);
+
       await tx.transaction.create({
         data: {
           userId: user.id,
@@ -175,10 +178,9 @@ const createUserWithCard = async (data: ICreateUser) => {
           type: "TOPUP",
           amount: balanceDecimal,
           quantity: 1,
-          balanceBefore: user.balance,
-          balanceAfter: new (Prisma as any).Decimal(
-            Number(user.balance) + Number(balance)
-          ),
+          balanceBefore: new (Prisma as any).Decimal(before),
+          balanceAfter: new (Prisma as any).Decimal(after),
+          organizationId: organizationId || null,
         },
       });
     }

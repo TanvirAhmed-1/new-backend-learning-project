@@ -6,7 +6,7 @@ const catchAsync = (func: RequestHandler) => {
     Promise.resolve(func(req, res, next)).catch((err) => {
       // Handling user already exist
       if (err.message === "User already exist!") {
-        res.status(httpStatus.BAD_REQUEST).json({
+        return res.status(httpStatus.BAD_REQUEST).json({
           success: false,
           message: err.message,
           errorDetails: err,
@@ -15,7 +15,7 @@ const catchAsync = (func: RequestHandler) => {
 
       // Handling unauthorized user
       if (err.message === "Unauthorized Access") {
-        res.status(httpStatus.UNAUTHORIZED).json({
+        return res.status(httpStatus.UNAUTHORIZED).json({
           success: false,
           message: err.message,
           errorDetails: err,
@@ -24,7 +24,7 @@ const catchAsync = (func: RequestHandler) => {
 
       // Handling user not found
       if (err.message === "User not found") {
-        res.status(httpStatus.NOT_FOUND).json({
+        return res.status(httpStatus.NOT_FOUND).json({
           success: false,
           message: err.message,
           errorDetails: err,
@@ -33,14 +33,16 @@ const catchAsync = (func: RequestHandler) => {
 
       // Handling incorrect password
       if (err.message === "Incorrect password") {
-        res.status(httpStatus.NOT_FOUND).json({
+        return res.status(httpStatus.NOT_FOUND).json({
           success: false,
           message: err.message,
           errorDetails: err,
         });
       }
 
-      next(err);
+      if (!res.headersSent) {
+        next(err);
+      }
     });
   };
 };

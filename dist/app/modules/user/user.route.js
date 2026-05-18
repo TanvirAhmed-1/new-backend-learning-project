@@ -1,0 +1,22 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.UserRoutes = void 0;
+const express_1 = require("express");
+const user_controller_1 = require("./user.controller");
+const requestValidation_1 = __importDefault(require("../../middlewares/requestValidation"));
+const user_validation_1 = require("./user.validation");
+const auth_1 = __importDefault(require("../../middlewares/auth"));
+const client_1 = require("@prisma/client");
+const router = (0, express_1.Router)();
+router.post("/users", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER, client_1.Role.OPERATOR), (0, requestValidation_1.default)(user_validation_1.createUserSchema), user_controller_1.UserController.createUser);
+router.get("/users", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER, client_1.Role.OPERATOR), user_controller_1.UserController.getAllUsers);
+router.get("/users/:id", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER, client_1.Role.OPERATOR), user_controller_1.UserController.getSingleUser);
+router.put("/users/:id", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER), user_controller_1.UserController.updateUser);
+router.delete("/users/:id", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN), user_controller_1.UserController.deleteUser);
+router.get("/new-card-issued-user", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER, client_1.Role.OPERATOR), user_controller_1.UserController.getNewCardIssuedUser);
+router.post("/checkout-user", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER, client_1.Role.OPERATOR), (0, requestValidation_1.default)(user_validation_1.checkoutUserSchema), user_controller_1.UserController.checkoutUser);
+router.post("/apply-penalty", (0, auth_1.default)(client_1.Role.SUPER_ADMIN, client_1.Role.ADMIN, client_1.Role.MANAGER, client_1.Role.OPERATOR), (0, requestValidation_1.default)(user_validation_1.applyUserPenaltySchema), user_controller_1.UserController.applyUserPenalty);
+exports.UserRoutes = router;
