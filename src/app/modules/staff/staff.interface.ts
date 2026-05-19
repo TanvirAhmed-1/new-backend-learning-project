@@ -7,6 +7,7 @@ export interface IStaff {
   phone: string;
   password: string;
   role: Role;
+  isActive?: boolean;
   counterId?: string;
   organizationId?: string;
 }

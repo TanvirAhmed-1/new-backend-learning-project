@@ -36,6 +36,10 @@ const getAllPlansFromDB = async () => {
 const buySubscriptionInDB = async (payload: IBuySubscription) => {
   const { organizationId, planId, paymentMethod, transactionId } = payload;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   // 1. Fetch Subscription Plan
   const plan = await prisma.subscriptionPlan.findUnique({
     where: { id: planId },
@@ -117,6 +121,10 @@ const buySubscriptionInDB = async (payload: IBuySubscription) => {
 };
 
 const getOrganizationSubscriptionFromDB = async (organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const subscription = await prisma.subscription.findUnique({
     where: { organizationId },
     include: {

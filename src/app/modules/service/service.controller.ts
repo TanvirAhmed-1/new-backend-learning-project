@@ -4,17 +4,16 @@ import { ServiceServices } from "./service.services";
 import { FileUploader } from "../../middlewares/fileUploader";
 
 const createService = catchAsync(async (req, res) => {
-  const payload = req.body;
+  const data = req.body;
   const request = req as any;
 
   if (request.file) {
     const { relativePath } = await FileUploader.processImage(request.file, "images");
-    payload.image = relativePath;
+    data.image = relativePath;
   }
 
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
 
   const result = await ServiceServices.createServiceInDB(payload);
 
@@ -26,11 +25,9 @@ const createService = catchAsync(async (req, res) => {
 });
 
 const getServices = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await ServiceServices.getServicesFromDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await ServiceServices.getServicesFromDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -53,8 +50,10 @@ const getSingleService = catchAsync(async (req, res) => {
 
 const updateService = catchAsync(async (req, res) => {
   const { id } = req.params;
+  const organizationId = req.user?.organizationId;
   const result = await ServiceServices.updateServiceInDB(
     id as string,
+    organizationId as string,
     req.body
   );
 
@@ -67,7 +66,11 @@ const updateService = catchAsync(async (req, res) => {
 
 const deleteService = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await ServiceServices.deleteServiceFromDB(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await ServiceServices.deleteServiceFromDB(
+    id as string,
+    organizationId as string
+  );
 
   res.status(httpStatus.OK).json({
     success: true,

@@ -1,9 +1,18 @@
 import prisma from "../../utils/prisma";
 import { sendSMS } from "../../utils/sendSMS";
 
-const sendVirtualCardSMS = async (id: string) => {
-  const record = await prisma.virtualCardAccess.findUnique({
-    where: { id },
+const sendVirtualCardSMS = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const record = await prisma.virtualCardAccess.findFirst({
+    where: {
+      id,
+      user: {
+        organizationId,
+      },
+    },
     include: {
       user: true,
       card: true,
@@ -51,8 +60,17 @@ const sendVirtualCardSMS = async (id: string) => {
   }
 };
 
-const getVirtualFormBD = async () => {
+const getVirtualFormBD = async (organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const record = await prisma.virtualCardAccess.findMany({
+    where: {
+      user: {
+        organizationId,
+      },
+    },
     include: {
       user: true,
       card: true,

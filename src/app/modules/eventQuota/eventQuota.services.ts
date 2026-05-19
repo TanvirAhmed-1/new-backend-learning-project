@@ -3,16 +3,32 @@ import { IEventQuotaBulk, } from "./eventQuota.interface";
 
 
 
-const createEventQuota = async (data: IEventQuotaBulk) => {
+const createEventQuota = async (data: IEventQuotaBulk, organizationId: string) => {
   const { eventId, services } = data;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   //  Event check
-  const eventExists = await prisma.event.findUnique({
-    where: { id: eventId },
+  const eventExists = await prisma.event.findFirst({
+    where: { id: eventId, organizationId },
   });
 
   if (!eventExists) {
     throw new Error("Event not found");
+  }
+
+  // Verify services belong to organization
+  const serviceIds = services.map((s) => s.serviceId);
+  const dbServices = await prisma.service.findMany({
+    where: {
+      id: { in: serviceIds },
+      organizationId,
+    },
+  });
+  if (dbServices.length !== serviceIds.length) {
+    throw new Error("Some services do not belong to your organization");
   }
 
   //  Duplicate check (optimized)
@@ -20,7 +36,7 @@ const createEventQuota = async (data: IEventQuotaBulk) => {
     where: {
       eventId,
       serviceId: {
-        in: services.map((s) => s.serviceId),
+        in: serviceIds,
       },
     },
   });
@@ -48,7 +64,7 @@ const createEventQuota = async (data: IEventQuotaBulk) => {
   return createdQuotas;
 };
 
-const getAllEventQuota = async (query: any) => {
+const getAllEventQuota = async (query: any, organizationId: string) => {
   const {
     page = 1,
     limit = 20,
@@ -61,41 +77,50 @@ const getAllEventQuota = async (query: any) => {
     sortOrder = "desc",
   } = query;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
 
-  const where: any = {};
+  const whereCondition: any = {
+    event: {
+      organizationId,
+    },
+  };
 
   // event filters
   if (eventName || status) {
-    where.event = {};
     if (eventName) {
-      where.event.name = {
+      whereCondition.event.name = {
         contains: eventName,
+        mode: "insensitive",
       };
     }
     if (status) {
-      where.event.status = status;
+      whereCondition.event.status = status;
     }
   }
 
   // service filters
   if (serviceName) {
-    where.service = {
+    whereCondition.service = {
       name: {
         contains: serviceName,
+        mode: "insensitive",
       },
     };
   }
 
   // quota date 
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
 
   const data = await prisma.eventQuota.findMany({
-    where,
+    where: whereCondition,
     include: {
       event: true,
       service: true,
@@ -107,7 +132,7 @@ const getAllEventQuota = async (query: any) => {
     },
   });
 
-  const total = await prisma.eventQuota.count({ where });
+  const total = await prisma.eventQuota.count({ where: whereCondition });
 
   return {
     meta: {
@@ -120,20 +145,36 @@ const getAllEventQuota = async (query: any) => {
   };
 };
 
-const updateEventQuota = async (data: IEventQuotaBulk) => {
+const updateEventQuota = async (data: IEventQuotaBulk, organizationId: string) => {
   const { eventId, services } = data;
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
 
   if (!services || !Array.isArray(services)) {
     throw new Error("Invalid services payload");
   }
 
-  const eventExists = await prisma.event.findUnique({
-    where: { id: eventId },
+  const eventExists = await prisma.event.findFirst({
+    where: { id: eventId, organizationId },
     select: { id: true },
   });
 
   if (!eventExists) {
     throw new Error("Event not found");
+  }
+
+  // Verify services belong to organization
+  const serviceIds = services.map((s) => s.serviceId);
+  const dbServices = await prisma.service.findMany({
+    where: {
+      id: { in: serviceIds },
+      organizationId,
+    },
+  });
+  if (dbServices.length !== serviceIds.length) {
+    throw new Error("Some services do not belong to your organization");
   }
 
   return prisma.$transaction(async (tx) => {
@@ -159,9 +200,18 @@ const updateEventQuota = async (data: IEventQuotaBulk) => {
   });
 };
 
-const deleteEventQuota = async (id: string) => {
-  const exists = await prisma.eventQuota.findUnique({
-    where: { id },
+const deleteEventQuota = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const exists = await prisma.eventQuota.findFirst({
+    where: {
+      id,
+      event: {
+        organizationId,
+      },
+    },
   });
 
   if (!exists) throw new Error("EventQuota not found");

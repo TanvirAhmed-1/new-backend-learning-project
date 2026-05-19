@@ -3,7 +3,8 @@ import { EventQuotaServices } from "./eventQuota.services";
 import catchAsync from "../../utils/catchAsync";
 
 const createEventQuota = catchAsync(async (req, res) => {
-  const result = await EventQuotaServices.createEventQuota(req.body);
+  const organizationId = req.user?.organizationId;
+  const result = await EventQuotaServices.createEventQuota(req.body, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -13,7 +14,8 @@ const createEventQuota = catchAsync(async (req, res) => {
 });
 
 const getAllEventQuota = catchAsync(async (req, res) => {
-  const result = await EventQuotaServices.getAllEventQuota(req.query);
+  const organizationId = req.user?.organizationId;
+  const result = await EventQuotaServices.getAllEventQuota(req.query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -25,6 +27,7 @@ const getAllEventQuota = catchAsync(async (req, res) => {
 const updateEventQuota = catchAsync(async (req, res) => {
     const eventId = req.params.eventId as string;
     const { services } = req.body;
+    const organizationId = req.user?.organizationId;
   
     if (!eventId) {
       throw new Error("eventId is required");
@@ -37,7 +40,7 @@ const updateEventQuota = catchAsync(async (req, res) => {
     const result = await EventQuotaServices.updateEventQuota({
       eventId,
       services,
-    });
+    }, organizationId as string);
   
     res.status(httpStatus.OK).json({
       success: true,
@@ -48,8 +51,9 @@ const updateEventQuota = catchAsync(async (req, res) => {
 
 const deleteEventQuota = catchAsync(async (req, res) => {
   const { id } = req.params;
+  const organizationId = req.user?.organizationId;
 
-  const result = await EventQuotaServices.deleteEventQuota(id as string);
+  const result = await EventQuotaServices.deleteEventQuota(id as string, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,

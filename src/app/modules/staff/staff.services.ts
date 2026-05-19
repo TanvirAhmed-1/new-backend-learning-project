@@ -1,34 +1,44 @@
 import bcrypt from "bcrypt";
+import { pick } from "../../utils/pick";
 import prisma from "../../utils/prisma";
 import { IStaff } from "./staff.interface";
 import { createToken } from "../../utils/createToken ";
 
-const getStaffFromDB = async (queryParams: Record<string, any>) => {
+const getStaffFromDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     name,
     email,
     phone,
-    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = queryParams;
 
-  const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
 
-  const whereCondition: any = {};
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (name) {
     whereCondition.name = {
       contains: name,
+      mode: "insensitive",
     };
   }
 
   if (email) {
     whereCondition.email = {
       contains: email,
+      mode: "insensitive",
     };
   }
 
@@ -38,15 +48,11 @@ const getStaffFromDB = async (queryParams: Record<string, any>) => {
     };
   }
 
-  if (organizationId) {
-    whereCondition.organizationId = organizationId;
-  }
-
   // 🔹 Query
   const data = await prisma.staff.findMany({
     where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: {
       [sortBy]: sortOrder,
     },
@@ -108,12 +114,27 @@ const getSingleStaffFromDB = async (id: string) => {
 };
 
 const createStaffInDB = async (data: IStaff) => {
-  const { email, phone, password, ...rest } = data;
-  const phoneExist = await prisma.staff.findUnique({ where: { phone } });
+  const { email, phone, password, organizationId, ...rest } = data;
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const phoneExist = await prisma.staff.findFirst({
+    where: {
+      phone,
+      organizationId,
+    },
+  });
   if (phoneExist) {
     throw new Error("Phone number already exists");
   }
-  const emailExist = await prisma.staff.findUnique({ where: { email } });
+  const emailExist = await prisma.staff.findFirst({
+    where: {
+      email,
+      organizationId,
+    },
+  });
   if (emailExist) {
     throw new Error("Email already exists");
   }
@@ -124,26 +145,65 @@ const createStaffInDB = async (data: IStaff) => {
       email,
       phone,
       password: hashedPassword,
+      organizationId,
     },
   });
   return result;
 };
-const updateStaffInDB = async (id: string, data: Partial<IStaff>) => {
-  const isExist = await prisma.staff.findUnique({ where: { id } });
+const updateStaffInDB = async (
+  id: string,
+  organizationId: string,
+  payload: Partial<IStaff>,
+) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.staff.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
+  });
+
   if (!isExist) {
     throw new Error("Staff not found");
   }
+
+  const updateData: any = pick(payload, [
+    "name",
+    "email",
+    "phone",
+    "isActive",
+    "counterId",
+  ]);
+
+  if (payload.password) {
+    updateData.password = await bcrypt.hash(payload.password, 10);
+  }
+
   const result = await prisma.staff.update({
     where: { id },
-    data,
+    data: updateData,
   });
   return result;
 };
-const deleteStaffFromDB = async (id: string) => {
-  const isExist = await prisma.staff.findUnique({ where: { id } });
+const deleteStaffFromDB = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.staff.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
+  });
+
   if (!isExist) {
     throw new Error("Staff not found");
   }
+
   const result = await prisma.staff.delete({ where: { id } });
   return result;
 };

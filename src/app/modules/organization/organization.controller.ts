@@ -3,17 +3,12 @@ import { OrganizationServices } from "./organization.services";
 import httpStatus from "http-status";
 
 const getOrganization = catchAsync(async (req, res) => {
-  const result = await OrganizationServices.getOrganizationFormDB();
+  const result = await OrganizationServices.getOrganizationFormDB(req.user);
   
-  // Enforce SaaS strict tenancy check
-  const filteredData = req.user?.role === "SUPER_ADMIN"
-    ? result
-    : result.filter((org) => org.id === req.user?.organizationId);
-
   res.status(httpStatus.OK).json({
     success: true,
     message: "Organization fetched successfully",
-    data: filteredData,
+    data: result,
   });
 });
 
@@ -32,7 +27,7 @@ const CreateOrganization = catchAsync(async (req, res) => {
 
 const updateOrganization = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await OrganizationServices.updateOrganizationInDB(id as string, req.body);
+  const result = await OrganizationServices.updateOrganizationInDB(id as string, req.body, req.user);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Organization updated successfully",
@@ -41,7 +36,7 @@ const updateOrganization = catchAsync(async (req, res) => {
 });
 const deleteOrganization = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await OrganizationServices.deleteOrganizationInDB(id as string);
+  const result = await OrganizationServices.deleteOrganizationInDB(id as string, req.user);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Organization deleted successfully",

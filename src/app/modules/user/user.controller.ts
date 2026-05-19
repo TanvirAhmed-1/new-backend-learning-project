@@ -4,10 +4,9 @@ import catchAsync from "../../utils/catchAsync";
 import { UserServices } from "./user.services";
 
 const createUser = catchAsync(async (req, res) => {
-  const payload = { ...req.body };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
   const result = await UserServices.createUserWithCard(payload);
 
   res.status(httpStatus.CREATED).json({
@@ -18,11 +17,9 @@ const createUser = catchAsync(async (req, res) => {
 });
 
 const getAllUsers = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await UserServices.getAllUsersFromDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await UserServices.getAllUsersFromDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -33,7 +30,8 @@ const getAllUsers = catchAsync(async (req, res) => {
 
 const getSingleUser = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await UserServices.getSingleUserFromDB(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await UserServices.getSingleUserFromDB(id as string, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -44,7 +42,12 @@ const getSingleUser = catchAsync(async (req, res) => {
 
 const updateUser = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await UserServices.updateUserInDB(id as string, req.body);
+  const organizationId = req.user?.organizationId;
+  const result = await UserServices.updateUserInDB(
+    id as string,
+    organizationId as string,
+    req.body
+  );
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -55,7 +58,8 @@ const updateUser = catchAsync(async (req: Request, res: Response) => {
 
 const deleteUser = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await UserServices.deleteUserFromDB(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await UserServices.deleteUserFromDB(id as string, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -65,11 +69,9 @@ const deleteUser = catchAsync(async (req, res) => {
 });
 
 const getNewCardIssuedUser = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await UserServices.getNewCardIssuedUserFormDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await UserServices.getNewCardIssuedUserFormDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -80,7 +82,8 @@ const getNewCardIssuedUser = catchAsync(async (req, res) => {
 
 const checkoutUser = catchAsync(async (req, res) => {
   const { userId: id, amount } = req.body;
-  const result = await UserServices.checkoutUserFormDB(id as string, amount);
+  const organizationId = req.user?.organizationId;
+  const result = await UserServices.checkoutUserFormDB(id as string, amount, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -91,14 +94,11 @@ const checkoutUser = catchAsync(async (req, res) => {
 
 const applyUserPenalty = catchAsync(async (req, res) => {
   const { userId } = req.body;
-  let organizationId = req.body.organizationId;
-  if (req.user?.role !== "SUPER_ADMIN") {
-    organizationId = req.user?.organizationId;
-  }
+  const organizationId = req.user?.organizationId;
 
   const result = await UserServices.applyUserPenaltyFormDB(
     userId,
-    organizationId
+    organizationId as string
   );
 
   res.status(httpStatus.OK).json({

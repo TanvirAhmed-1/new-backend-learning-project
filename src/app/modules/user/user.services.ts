@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { pick } from "../../utils/pick";
 import prisma from "../../utils/prisma";
 import { Prisma } from "@prisma/client";
 import { ICreateUser, UpdateUserInput } from "./user.interface";
@@ -17,18 +18,21 @@ const createUserWithCard = async (data: ICreateUser) => {
     eventId,
   } = data;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   return await prisma.$transaction(async (tx: any) => {
-    if (organizationId) {
-      const organization = await tx.organization.findUnique({
-        where: { id: organizationId },
-      });
-      if (!organization) {
-        throw new Error("Organization not found");
-      }
+    const organization = await tx.organization.findUnique({
+      where: { id: organizationId },
+    });
+    if (!organization) {
+      throw new Error("Organization not found");
     }
+
     if (eventId) {
-      const event = await tx.event.findUnique({
-        where: { id: eventId },
+      const event = await tx.event.findFirst({
+        where: { id: eventId, organizationId },
       });
       if (!event) {
         throw new Error("Event is  not found!");
@@ -50,7 +54,7 @@ const createUserWithCard = async (data: ICreateUser) => {
           cardUid,
           cardCode,
           status: "ACTIVE",
-          organizationId: data.organizationId,
+          organizationId: organizationId,
         },
       });
     }
@@ -61,8 +65,8 @@ const createUserWithCard = async (data: ICreateUser) => {
     else {
       if (!cardId) throw new Error("Card ID is required");
 
-      card = await tx.card.findUnique({
-        where: { cardUid: cardId },
+      card = await tx.card.findFirst({
+        where: { cardUid: cardId, organizationId },
       });
 
       if (!card) throw new Error("Card not found");
@@ -72,8 +76,8 @@ const createUserWithCard = async (data: ICreateUser) => {
     // =========================
     // USER CHECK
     // =========================
-    const existingUser = await tx.user.findUnique({
-      where: { phone },
+    const existingUser = await tx.user.findFirst({
+      where: { phone, organizationId },
     });
 
     if (existingUser?.status === "ACTIVE")
@@ -87,7 +91,7 @@ const createUserWithCard = async (data: ICreateUser) => {
     // =========================
     if (existingUser) {
       user = await tx.user.update({
-        where: { phone },
+        where: { id: existingUser.id },
         data: {
           name,
           email,
@@ -140,7 +144,7 @@ const createUserWithCard = async (data: ICreateUser) => {
           pinHash: pinHash ?? null,
           isPinSet: Boolean(pinHash),
           activeEventId: eventId ?? null,
-          organizationId: organizationId || null,
+          organizationId: organizationId,
           userPresent: {
             [getToday()]: 1,
           },
@@ -180,28 +184,28 @@ const createUserWithCard = async (data: ICreateUser) => {
           quantity: 1,
           balanceBefore: new (Prisma as any).Decimal(before),
           balanceAfter: new (Prisma as any).Decimal(after),
-          organizationId: organizationId || null,
+          organizationId: organizationId,
         },
       });
     }
 
     // =========================
-// CREATE VIRTUAL CARD ACCESS (ONLY VIRTUAL)
-// =========================
-if (CardType === "VIRTUAL") {
-  const token =randomBytes(32).toString("hex");
+    // CREATE VIRTUAL CARD ACCESS (ONLY VIRTUAL)
+    // =========================
+    if (CardType === "VIRTUAL") {
+      const token =randomBytes(32).toString("hex");
 
-  await tx.virtualCardAccess.create({
-    data: {
-      userId: user.id,
-      cardId: updatedCard.id,
-      phone: user.phone,
-      token,
-      status: "PENDING",
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-    },
-  });
-}
+      await tx.virtualCardAccess.create({
+        data: {
+          userId: user.id,
+          cardId: updatedCard.id,
+          phone: user.phone,
+          token,
+          status: "PENDING",
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
+    }
 
     return {
       user,
@@ -210,11 +214,13 @@ if (CardType === "VIRTUAL") {
   });
 };
 
-const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
+const getNewCardIssuedUserFormDB = async (
+  query: Record<string, any>,
+  organizationId: string
+) => {
   const {
     type,
     phone,
-    organizationId,
     fromDate,
     toDate,
     orderBy = "updatedAt",
@@ -223,33 +229,33 @@ const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
     limit = 20,
   } = query;
 
-  const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
-
-  // 🔥 WHERE CONDITION
-  const where: any = {};
-
-  if (organizationId) {
-    where.organizationId = organizationId;
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
   }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   // 🔹 Phone filter (user)
   if (phone) {
-    where.phone = {
+    whereCondition.phone = {
       contains: phone,
     };
   }
 
   // 🔹 Date filter
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
 
   //  Card filter
   if (type) {
-    where.cards = {
+    whereCondition.cards = {
       some: {
         type: type,
       },
@@ -258,9 +264,9 @@ const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
 
   // 🔹 QUERY
   const users = await prisma.user.findMany({
-    where,
+    where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: {
       [orderBy]: sortOrder,
     },
@@ -276,7 +282,7 @@ const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
   });
 
   // 🔹 TOTAL COUNT
-  const total = await prisma.user.count({ where });
+  const total = await prisma.user.count({ where: whereCondition });
 
   return {
     meta: {
@@ -289,12 +295,14 @@ const getNewCardIssuedUserFormDB = async (query: Record<string, any>) => {
   };
 };
 
-const getAllUsersFromDB = async (query: Record<string, any>) => {
+const getAllUsersFromDB = async (
+  query: Record<string, any>,
+  organizationId: string
+) => {
   const {
     type,
     phone,
     status,
-    organizationId,
     fromDate,
     toDate,
     orderBy = "createdAt",
@@ -303,48 +311,48 @@ const getAllUsersFromDB = async (query: Record<string, any>) => {
     limit = 20,
   } = query;
 
-  const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
-
-  // 🔥 WHERE CONDITION
-  const where: any = {};
-
-  if (organizationId) {
-    where.organizationId = organizationId;
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
   }
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   // 🔹 Phone filter (user)
   if (phone) {
-    where.phone = {
+    whereCondition.phone = {
       contains: phone,
     };
   }
 
   // 🔹 User type filter
   if (status) {
-    where.status = status;
+    whereCondition.status = status;
   }
 
   // 🔹 Date filter
   if (fromDate || toDate) {
-    where.createdAt = {};
+    whereCondition.createdAt = {};
 
     if (fromDate) {
       const start = new Date(fromDate);
       start.setHours(0, 0, 0, 0); // Diner shuru
-      where.createdAt.gte = start;
+      whereCondition.createdAt.gte = start;
     }
 
     if (toDate) {
       const end = new Date(toDate);
       end.setHours(23, 59, 59, 999); // Diner shesh
-      where.createdAt.lte = end;
+      whereCondition.createdAt.lte = end;
     }
   }
 
   //  Card type filter
   if (type) {
-    where.cards = {
+    whereCondition.cards = {
       some: {
         type: type,
       },
@@ -352,9 +360,9 @@ const getAllUsersFromDB = async (query: Record<string, any>) => {
   }
 
   const data = await prisma.user.findMany({
-    where,
+    where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: {
       [orderBy]: sortOrder,
     },
@@ -373,7 +381,7 @@ const getAllUsersFromDB = async (query: Record<string, any>) => {
   });
 
   // 🔹 TOTAL COUNT
-  const total = await prisma.user.count({ where });
+  const total = await prisma.user.count({ where: whereCondition });
 
   return {
     meta: {
@@ -386,9 +394,13 @@ const getAllUsersFromDB = async (query: Record<string, any>) => {
   };
 };
 
-const getSingleUserFromDB = async (id: string) => {
-  const user = await prisma.user.findUnique({
-    where: { id },
+const getSingleUserFromDB = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id, organizationId },
     include: {
       cards: true,
       transactions: true,
@@ -400,19 +412,41 @@ const getSingleUserFromDB = async (id: string) => {
   return user;
 };
 
-const updateUserInDB = async (id: string, data: UpdateUserInput) => {
-  const user = await prisma.user.findUnique({ where: { id } });
+const updateUserInDB = async (
+  id: string,
+  organizationId: string,
+  payload: Partial<UpdateUserInput>
+) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id, organizationId },
+  });
 
   if (!user) throw new Error("User not found");
 
+  const updateData = pick(payload, [
+    "name",
+    "email",
+    "phone",
+  ]);
+
   return await prisma.user.update({
     where: { id },
-    data,
+    data: updateData,
   });
 };
 
-const deleteUserFromDB = async (id: string) => {
-  const user = await prisma.user.findUnique({ where: { id } });
+const deleteUserFromDB = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const user = await prisma.user.findFirst({
+    where: { id, organizationId },
+  });
 
   if (!user) throw new Error("User not found");
 
@@ -421,8 +455,18 @@ const deleteUserFromDB = async (id: string) => {
   });
 };
 
-const checkoutUserFormDB = async (id: string, amount: number) => {
-  const userExists = await prisma.user.findUnique({ where: { id } });
+const checkoutUserFormDB = async (
+  id: string,
+  amount: number,
+  organizationId: string
+) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const userExists = await prisma.user.findFirst({
+    where: { id, organizationId },
+  });
 
   if (!userExists) {
     throw new Error("User not found");
@@ -430,8 +474,8 @@ const checkoutUserFormDB = async (id: string, amount: number) => {
 
   return await prisma.$transaction(async (tx: any) => {
     // 1️ Find user with card + current balance
-    const user = await tx.user.findUnique({
-      where: { id },
+    const user = await tx.user.findFirst({
+      where: { id, organizationId },
       include: {
         cards: true,
       },
@@ -443,15 +487,6 @@ const checkoutUserFormDB = async (id: string, amount: number) => {
     if (!card) throw new Error("No card assigned to user");
 
     const currentBalance = Number(user.balance);
-
-    // 2️ Balance validation
-    // if (amount <= 0) {
-    //   throw new Error(`Invalid amount: ${amount}`);
-    // }
-
-    // if (currentBalance <= 0) {
-    //   throw new Error("Card has no balance");
-    // }
 
     // STRICT RULE (your requirement)
     if (amount !== currentBalance) {
@@ -471,6 +506,7 @@ const checkoutUserFormDB = async (id: string, amount: number) => {
         amount: amount,
         balanceBefore: currentBalance,
         balanceAfter: newBalance,
+        organizationId,
       },
     });
 
@@ -501,10 +537,14 @@ const applyUserPenaltyFormDB = async (
   userId: string,
   organizationId: string
 ) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   return await prisma.$transaction(async (tx: any) => {
     // 1️⃣ Get user with card
-    const user = await tx.user.findUnique({
-      where: { id: userId },
+    const user = await tx.user.findFirst({
+      where: { id: userId, organizationId },
       include: { cards: true },
     });
 
@@ -548,6 +588,7 @@ const applyUserPenaltyFormDB = async (
         amount: penaltyAmount,
         balanceBefore: currentBalance,
         balanceAfter: afterPenaltyBalance,
+        organizationId,
       },
     });
 
@@ -563,6 +604,7 @@ const applyUserPenaltyFormDB = async (
           amount: refundAmount,
           balanceBefore: afterPenaltyBalance,
           balanceAfter: 0,
+          organizationId,
         },
       });
     }

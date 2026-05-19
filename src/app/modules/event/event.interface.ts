@@ -6,6 +6,7 @@ export type IEvent = {
     endDate: Date;
     organizationId?: string;
     creatorId?: string;
+    status?: "ACTIVE" | "INACTIVE" | "LOCKED";
     createdAt?: Date;
     updatedAt?: Date;
   };

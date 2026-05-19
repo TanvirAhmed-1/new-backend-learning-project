@@ -1,10 +1,20 @@
 
+import { pick } from "../../utils/pick";
 import prisma from "../../utils/prisma";
 import { IEvent } from "./event.interface";
 
 const createEvent = async (data: IEvent) => {
+  const { name, startDate, endDate, organizationId, creatorId } = data;
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const exists = await prisma.event.findFirst({
-    where: { name: data.name },
+    where: {
+      name,
+      organizationId,
+    },
   });
 
   if (exists) {
@@ -13,22 +23,23 @@ const createEvent = async (data: IEvent) => {
 
   return await prisma.event.create({
     data: {
-      name: data.name,
-      startDate: new Date(data.startDate),
-      endDate: new Date(data.endDate),
-      organizationId: data.organizationId || null,
-      creatorId: data.creatorId || null,
+      name,
+      startDate: new Date(startDate),
+      endDate: new Date(endDate),
+      organizationId,
     },
   });
 };
 
-const getAllEvent = async (queryParams: Record<string, any>) => {
+const getAllEvent = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     name,
     status,
     fromDate,
     toDate,
-    organizationId,
     creatorId,
     page = 1,
     limit = 20,
@@ -36,37 +47,40 @@ const getAllEvent = async (queryParams: Record<string, any>) => {
     sortOrder = "desc",
   } = queryParams;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
-  const where: any = {};
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (name) {
-    where.name = {
+    whereCondition.name = {
       contains: name,
+      mode: "insensitive",
     };
   }
 
   if (status) {
-    where.status = status;
-  }
-
-  if (organizationId) {
-    where.organizationId = organizationId;
+    whereCondition.status = status;
   }
 
   if (creatorId) {
-    where.creatorId = creatorId;
+    whereCondition.creatorId = creatorId;
   }
 
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
   const events = await prisma.event.findMany({
-    where,
+    where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: { [sortBy]: sortOrder },
     include: {
       _count: {
@@ -78,24 +92,25 @@ const getAllEvent = async (queryParams: Record<string, any>) => {
       },
     },
   });
-  const total = await prisma.event.count({ where });
+  const total = await prisma.event.count({ where: whereCondition });
 
   return {
     meta: {
-      page,
-      limit,
-      total: total,
+      page: Number(page),
+      limit: Number(limit),
+      total,
       totalPage: Math.ceil(total / Number(limit)),
     },
     data: events,
   };
 };
 
-const getSingleEventUserFormDB = async (id: string) => {
+const getSingleEventUserFormDB = async (id: string, organizationId: string) => {
   if (!id) throw new Error("Event ID is required");
+  if (!organizationId) throw new Error("Organization ID is required");
 
-  const event = await prisma.event.findUnique({
-    where: { id },
+  const event = await prisma.event.findFirst({
+    where: { id, organizationId },
     include: {
       activeUsers: true,
       _count: {
@@ -113,16 +128,18 @@ const getSingleEventUserFormDB = async (id: string) => {
   return event;
 };
 
-const getSingleEventQuotaFormDB = async (id: string) => {
+const getSingleEventQuotaFormDB = async (id: string, organizationId: string) => {
   if (!id) throw new Error("Event ID is required");
-  const isExist = await prisma.event.findUnique({
-    where: { id },
+  if (!organizationId) throw new Error("Organization ID is required");
+
+  const isExist = await prisma.event.findFirst({
+    where: { id, organizationId },
   });
 
   if (!isExist) throw new Error("Event not found");
 
-  const event = await prisma.event.findUnique({
-    where: { id },
+  const event = await prisma.event.findFirst({
+    where: { id, organizationId },
     include: {
       eventQuotas: {
         select: {
@@ -142,22 +159,32 @@ const getSingleEventQuotaFormDB = async (id: string) => {
   return event;
 };
 
-const updateEvent = async (id: string, data: Partial<IEvent>) => {
-  const exists = await prisma.event.findUnique({
-    where: { id },
+const updateEvent = async (
+  id: string,
+  organizationId: string,
+  payload: Partial<IEvent>,
+) => {
+  if (!organizationId) throw new Error("Organization ID is required");
+
+  const exists = await prisma.event.findFirst({
+    where: { id, organizationId },
   });
 
   if (!exists) throw new Error("Event not found");
 
+  const updateData = pick(payload, ["name", "startDate", "endDate", "status"]);
+
   return await prisma.event.update({
     where: { id },
-    data,
+    data: updateData,
   });
 };
 
-const deleteEvent = async (id: string) => {
-  const exists = await prisma.event.findUnique({
-    where: { id },
+const deleteEvent = async (id: string, organizationId: string) => {
+  if (!organizationId) throw new Error("Organization ID is required");
+
+  const exists = await prisma.event.findFirst({
+    where: { id, organizationId },
   });
 
   if (!exists) throw new Error("Event not found");
@@ -167,7 +194,15 @@ const deleteEvent = async (id: string) => {
   });
 };
 
-const lockEvent = async (id: string) => {
+const lockEvent = async (id: string, organizationId: string) => {
+  if (!organizationId) throw new Error("Organization ID is required");
+
+  const exists = await prisma.event.findFirst({
+    where: { id, organizationId },
+  });
+
+  if (!exists) throw new Error("Event not found");
+
   return await prisma.$transaction(async (tx: any) => {
     // 1. Lock Event
     const event = await tx.event.update({
@@ -216,7 +251,10 @@ const lockEvent = async (id: string) => {
 };
 
 
-const getAllEventUserFormDB = async (queryParams: Record<string, any>) => {
+const getAllEventUserFormDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     phone,
     eventName,
@@ -229,28 +267,36 @@ const getAllEventUserFormDB = async (queryParams: Record<string, any>) => {
     sortOrder = "desc",
   } = queryParams;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
-  const where: any = {};
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (eventName) {
-    where.name = {
+    whereCondition.name = {
       contains: eventName,
+      mode: "insensitive",
     };
   }
 
   if (status) {
-    where.status = status;
+    whereCondition.status = status;
   }
 
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
 
   if (phone) {
-    where.activeUsers = {
+    whereCondition.activeUsers = {
       some: {
         phone: {
           contains: phone,
@@ -260,7 +306,7 @@ const getAllEventUserFormDB = async (queryParams: Record<string, any>) => {
   }
 
   const events = await prisma.event.findMany({
-    where,
+    where: whereCondition,
     skip,
     take,
     orderBy: { [sortBy]: sortOrder },
@@ -275,7 +321,7 @@ const getAllEventUserFormDB = async (queryParams: Record<string, any>) => {
     },
   });
 
-  const total = await prisma.event.count({ where });
+  const total = await prisma.event.count({ where: whereCondition });
 
   return {
     meta: {
@@ -288,14 +334,28 @@ const getAllEventUserFormDB = async (queryParams: Record<string, any>) => {
   };
 };
 
-const deleteeventUserFormDB = async (eventId: string, userId: string) => {
-  const isExist = await prisma.event.findUnique({
-    where: { id: eventId },
+const deleteeventUserFormDB = async (
+  eventId: string,
+  userId: string,
+  organizationId: string
+) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.event.findFirst({
+    where: {
+      id: eventId,
+      organizationId,
+    },
   });
   if (!isExist) throw new Error("Event not found");
 
-  const isUserExist = await prisma.user.findUnique({
-    where: { id: userId },
+  const isUserExist = await prisma.user.findFirst({
+    where: {
+      id: userId,
+      organizationId,
+    },
   });
   if (!isUserExist) throw new Error("User not found");
 
@@ -326,46 +386,51 @@ const deleteeventUserFormDB = async (eventId: string, userId: string) => {
   });
 };
 
-const getEventAnalyticsFormDB = async (queryParams: Record<string, any>) => {
+const getEventAnalyticsFormDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     name,
     status,
     fromDate,
     toDate,
-    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = queryParams;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
 
-  const where: any = {};
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (name) {
-    where.name = {
+    whereCondition.name = {
       contains: name,
+      mode: "insensitive",
     };
   }
 
   if (status) {
-    where.status = status;
-  }
-
-  if (organizationId) {
-    where.organizationId = organizationId;
+    whereCondition.status = status;
   }
 
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
 
   const events = await prisma.event.findMany({
-    where,
+    where: whereCondition,
     skip,
     take,
     orderBy: { [sortBy]: sortOrder },
@@ -418,12 +483,12 @@ const getEventAnalyticsFormDB = async (queryParams: Record<string, any>) => {
     };
   });
 
-  const total = await prisma.event.count({ where });
+  const total = await prisma.event.count({ where: whereCondition });
 
   return {
     meta: {
-      page,
-      limit,
+      page: Number(page),
+      limit: Number(limit),
       total,
       totalPage: Math.ceil(total / Number(limit)),
     },
@@ -432,13 +497,18 @@ const getEventAnalyticsFormDB = async (queryParams: Record<string, any>) => {
 };
 
 
-const getSingleEventAnalyticsFormDB = async (eventId: string, query: any) => {
+const getSingleEventAnalyticsFormDB = async (
+  eventId: string,
+  query: any,
+  organizationId: string
+) => {
   const { phone, status, cardUid, limit = 20, page = 1, sortBy = "createdAt", sortOrder = "desc" } = query;
 
   if (!eventId) throw new Error("Event ID is required");
+  if (!organizationId) throw new Error("Organization ID is required");
 
-  const existEvent = await prisma.event.findUnique({
-    where: { id: eventId },
+  const existEvent = await prisma.event.findFirst({
+    where: { id: eventId, organizationId },
     include: {
       eventQuotas: {
         include: { service: true }
@@ -455,6 +525,7 @@ const getSingleEventAnalyticsFormDB = async (eventId: string, query: any) => {
 
   const where: any = {
     activeEventId: eventId,
+    organizationId,
   };
 
   // 🔹 Phone filter

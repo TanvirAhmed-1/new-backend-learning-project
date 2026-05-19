@@ -3,11 +3,9 @@ import httpStatus from "http-status";
 import { TransactionServices } from "./transaction.services";
 
 const getTransactions = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await TransactionServices.getTransactionsFromDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await TransactionServices.getTransactionsFromDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -15,12 +13,11 @@ const getTransactions = catchAsync(async (req, res) => {
     data: result,
   });
 });
+
 const getCounterWiseSales = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await TransactionServices.getCounterWiseSalesFormDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await TransactionServices.getCounterWiseSalesFormDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -28,12 +25,11 @@ const getCounterWiseSales = catchAsync(async (req, res) => {
     data: result,
   });
 });
+
 const getDailyLedger = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await TransactionServices.getDailyLedgerFormDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await TransactionServices.getDailyLedgerFormDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -43,10 +39,9 @@ const getDailyLedger = catchAsync(async (req, res) => {
 });
 
 const topupTransaction = catchAsync(async (req, res) => {
-  const payload = { ...req.body };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
   const result = await TransactionServices.topupTransactionFromDB(payload);
 
   res.status(httpStatus.OK).json({

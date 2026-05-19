@@ -3,11 +3,9 @@ import { StaffServices } from "./staff.services";
 import httpStatus from "http-status";
 
 const getStaff = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await StaffServices.getStaffFromDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await StaffServices.getStaffFromDB(query, organizationId as string);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Staff fetched successfully",
@@ -26,10 +24,9 @@ const login=catchAsync(async(req,res)=>{
 })
 
 const createStaff = catchAsync(async (req, res) => {
-  const payload = { ...req.body };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
   const result = await StaffServices.createStaffInDB(payload);
   res.status(httpStatus.OK).json({
     success: true,
@@ -50,7 +47,12 @@ const getSingleStaff = catchAsync(async (req, res) => {
 
 const updateStaff = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await StaffServices.updateStaffInDB(id as string, req.body);
+  const organizationId = req.user?.organizationId;
+  const result = await StaffServices.updateStaffInDB(
+    id as string,
+    organizationId as string,
+    req.body
+  );
   res.status(httpStatus.OK).json({
     success: true,
     message: "Staff updated successfully",
@@ -60,7 +62,11 @@ const updateStaff = catchAsync(async (req, res) => {
 
 const deleteStaff = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await StaffServices.deleteStaffFromDB(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await StaffServices.deleteStaffFromDB(
+    id as string,
+    organizationId as string
+  );
   res.status(httpStatus.OK).json({
     success: true,
     message: "Staff deleted successfully",

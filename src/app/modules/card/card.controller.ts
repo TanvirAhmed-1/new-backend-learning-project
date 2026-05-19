@@ -3,11 +3,10 @@ import catchAsync from "../../utils/catchAsync";
 import { CardServices } from "./card.services";
 
 const createCard = catchAsync(async (req, res) => {
-  const payload = { ...req.body };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
-  const result = await CardServices.createCardInDB(payload);
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
+  const result = await CardServices.createCardInDB(payload, req.user);
 
   res.status(httpStatus.CREATED).json({
     success: true,
@@ -17,11 +16,9 @@ const createCard = catchAsync(async (req, res) => {
 });
 
 const getAllCards = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await CardServices.getAllCardFormDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await CardServices.getAllCardFormDB(query, organizationId as string);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Cards fetched successfully",
@@ -53,7 +50,7 @@ const getVirtualInactiveCard = catchAsync(async (req, res) => {
 });
 const deleteCard = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await CardServices.deleteCardFromDB(id as string);
+  const result = await CardServices.deleteCardFromDB(id as string, req.user);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Card deleted successfully",

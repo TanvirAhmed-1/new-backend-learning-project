@@ -2,8 +2,13 @@ import prisma from "../../utils/prisma";
 import { ICreateOrganization } from "./organization.interface";
 import bcrypt from "bcrypt";
 
-const getOrganizationFormDB = async () => {
+const getOrganizationFormDB = async (user?: any) => {
+  const whereCondition = user?.role === "SUPER_ADMIN"
+    ? {}
+    : { id: user?.organizationId || "" };
+
   const result = await prisma.organization.findMany({
+    where: whereCondition,
     include: {
       creator: {
         select: {
@@ -51,8 +56,14 @@ const CreateOrganizationInDB = async (data: ICreateOrganization) => {
 
 const updateOrganizationInDB = async (
   id: string,
-  data: Partial<ICreateOrganization>
+  data: Partial<ICreateOrganization>,
+  user?: any
 ) => {
+  // Enforce SaaS strict tenancy check
+  if (user?.role !== "SUPER_ADMIN" && id !== user?.organizationId) {
+    throw new Error("Forbidden Access! You do not have permission to update this organization.");
+  }
+
   const isExist = await prisma.organization.findUnique({
     where: {
       id,
@@ -75,7 +86,12 @@ const updateOrganizationInDB = async (
   return result;
 };
 
-const deleteOrganizationInDB = async (id: string) => {
+const deleteOrganizationInDB = async (id: string, user?: any) => {
+  // Enforce SaaS strict tenancy check
+  if (user?.role !== "SUPER_ADMIN" && id !== user?.organizationId) {
+    throw new Error("Forbidden Access! You do not have permission to delete this organization.");
+  }
+
   const isExist = await prisma.organization.findUnique({
     where: {
       id,
@@ -84,11 +100,117 @@ const deleteOrganizationInDB = async (id: string) => {
   if (!isExist) {
     throw new Error("Organization not found");
   }
-  const result = await prisma.organization.delete({
-    where: {
-      id,
-    },
+
+  // Atomic database transaction to cascade delete all organization-associated data
+  const result = await prisma.$transaction(async (tx) => {
+    // 1. Delete Subscription Payments
+    await tx.subscriptionPayment.deleteMany({
+      where: {
+        subscription: {
+          organizationId: id,
+        },
+      },
+    });
+
+    // 2. Delete Subscriptions
+    await tx.subscription.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 3. Delete Transactions
+    await tx.transaction.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 4. Delete Event Quotas
+    await tx.eventQuota.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 5. Delete Events
+    await tx.event.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 6. Delete Virtual Card Accesses
+    await tx.virtualCardAccess.deleteMany({
+      where: {
+        user: {
+          organizationId: id,
+        },
+      },
+    });
+
+    // 7. Delete Cards
+    await tx.card.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 8. Delete Users
+    await tx.user.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 9. Delete Services
+    await tx.service.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 10. Delete Service Types
+    await tx.serviceType.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 11. Delete Counters
+    await tx.counter.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 12. Break the cyclic relationship between creator staff and organization creatorId
+    await tx.organization.update({
+      where: {
+        id,
+      },
+      data: {
+        creatorId: null,
+      },
+    });
+
+    // 13. Delete Staffs
+    await tx.staff.deleteMany({
+      where: {
+        organizationId: id,
+      },
+    });
+
+    // 14. Finally, delete the Organization itself
+    const deletedOrg = await tx.organization.delete({
+      where: {
+        id,
+      },
+    });
+
+    return deletedOrg;
   });
+
   return result;
 };
 

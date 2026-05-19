@@ -3,10 +3,9 @@ import catchAsync from "../../utils/catchAsync";
 import { ServiceTypeServices } from "./serviceType.services";
 
 const createServiceType = catchAsync(async (req, res) => {
-  const payload = { ...req.body };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
   const result = await ServiceTypeServices.createServiceTypeInDB(payload);
 
   res.status(httpStatus.OK).json({
@@ -17,11 +16,9 @@ const createServiceType = catchAsync(async (req, res) => {
 });
 
 const getAllServiceTypes = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await ServiceTypeServices.getAllServiceTypesFromDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await ServiceTypeServices.getAllServiceTypesFromDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -44,8 +41,13 @@ const getSingleServiceType = catchAsync(async (req, res) => {
 
 const updateServiceType = catchAsync(async (req, res) => {
   const { id } = req.params;
+  const organizationId = req.user?.organizationId;
 
-  const result = await ServiceTypeServices.updateServiceTypeInDB(id as string, req.body);
+  const result = await ServiceTypeServices.updateServiceTypeInDB(
+    id as string,
+    organizationId as string,
+    req.body
+  );
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -56,8 +58,12 @@ const updateServiceType = catchAsync(async (req, res) => {
 
 const deleteServiceType = catchAsync(async (req, res) => {
   const { id } = req.params;
+  const organizationId = req.user?.organizationId;
 
-  const result = await ServiceTypeServices.deleteServiceTypeFromDB(id as string);
+  const result = await ServiceTypeServices.deleteServiceTypeFromDB(
+    id as string,
+    organizationId as string
+  );
 
   res.status(httpStatus.OK).json({
     success: true,

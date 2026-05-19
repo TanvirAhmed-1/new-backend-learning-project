@@ -1,9 +1,16 @@
+import { pick } from "../../utils/pick";
 import prisma from "../../utils/prisma";
 import { IServiceRequest } from "./service.interface";
 
 const createServiceInDB = async (data: IServiceRequest) => {
+  const { name, organizationId } = data;
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const isExist = await prisma.service.findUnique({
-    where: { name: data.name },
+    where: { name },
   });
 
   if (isExist) {
@@ -48,81 +55,70 @@ const createServiceInDB = async (data: IServiceRequest) => {
       serviceTypeId: data.serviceTypeId,
       counterId: data.counterId,
       staffId: data.staffId,
-      organizationId: data.organizationId || null,
+      organizationId: organizationId,
     },
   });
 
   return result;
 };
 
-const getServicesFromDB = async (queryParams: Record<string, any>) => {
+const getServicesFromDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     name,
     minPrice,
     maxPrice,
     counterId,
     status,
-    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = queryParams;
 
-  const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
 
-  const andConditions: any[] = [];
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (name) {
-    andConditions.push({
-      name: {
-        contains: name,
-      },
-    });
+    whereCondition.name = {
+      contains: name,
+      mode: "insensitive",
+    };
   }
 
   // ২. Status Filter
   if (status !== undefined && status !== "") {
-    andConditions.push({
-      isActive: status === "true" || status === true,
-    });
+    whereCondition.isActive = status === "true" || status === true;
   }
 
   // ৩. Counter Filter
   if (counterId) {
-    andConditions.push({
-      OR: [
-        { counterId: counterId },
-        { counterId: null }
-      ],
-    });
-  }
-
-  // ৩.৫. Organization Filter
-  if (organizationId) {
-    andConditions.push({
-      organizationId,
-    });
+    whereCondition.OR = [
+      { counterId: counterId },
+      { counterId: null }
+    ];
   }
 
   // ৪. Price Range Filter
   if (minPrice || maxPrice) {
-    const priceFilter: any = {};
-    if (minPrice) priceFilter.gte = Number(minPrice);
-    if (maxPrice) priceFilter.lte = Number(maxPrice);
-
-    andConditions.push({
-      price: priceFilter,
-    });
+    whereCondition.price = {};
+    if (minPrice) whereCondition.price.gte = Number(minPrice);
+    if (maxPrice) whereCondition.price.lte = Number(maxPrice);
   }
-
-  const whereCondition = andConditions.length > 0 ? { AND: andConditions } : {};
 
   const data = await prisma.service.findMany({
     where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: {
       [sortBy]: sortOrder,
     },
@@ -171,24 +167,53 @@ const getSingleServiceFromDB = async (id: string) => {
 
 const updateServiceInDB = async (
   id: string,
-  data: Partial<IServiceRequest>
+  organizationId: string,
+  payload: Partial<IServiceRequest>
 ) => {
-  const isExist = await prisma.service.findUnique({ where: { id } });
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.service.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
+  });
 
   if (!isExist) {
     throw new Error("Service not found");
   }
 
+  const updateData = pick(payload, [
+    "name",
+    "price",
+    "description",
+    "image",
+    "counterId",
+    "serviceTypeId",
+    "staffId",
+  ]);
+
   const result = await prisma.service.update({
     where: { id },
-    data,
+    data: updateData,
   });
 
   return result;
 };
 
-const deleteServiceFromDB = async (id: string) => {
-  const isExist = await prisma.service.findUnique({ where: { id } });
+const deleteServiceFromDB = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.service.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
+  });
 
   if (!isExist) {
     throw new Error("Service not found");

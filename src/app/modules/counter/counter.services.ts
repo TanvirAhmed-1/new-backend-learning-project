@@ -1,8 +1,13 @@
+import { pick } from "../../utils/pick";
 import prisma from "../../utils/prisma";
 import { ICounterRequest } from "./counter.interface";
 
 const createCounterInDB = async (data: ICounterRequest) => {
-  const { name } = data;
+  const { name, organizationId } = data;
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
 
   const isExist = await prisma.counter.findUnique({ where: { name } });
   if (isExist) {
@@ -12,97 +17,68 @@ const createCounterInDB = async (data: ICounterRequest) => {
     data: {
       name: data.name,
       isActive: data.isActive,
-      organizationId: data.organizationId || null,
+      organizationId: organizationId,
     },
   });
   return result;
 };
 
-// const getAllCountersFromDB = async () => {
-//   const counters = await prisma.counter.findMany({
-//     include: {
-//       service: true,
-//     },
-//   });
-
-//   const globalServices = await prisma.service.findMany({
-//     where: { counterId: null },
-//   });
-
-//   return {
-//     counters,
-//     globalServices: globalServices.map((s) => ({
-//       ...s,
-//       scope: "GLOBAL",
-//     })),
-//   };
-// };
-
-const getAllCountersFromDB = async (queryParams: Record<string, any>) => {
+const getAllCountersFromDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
-    name, 
-    status, 
-    organizationId,
+    name,
+    status,
     page = 1,
-    limit = 20,
+    limit = 30,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = queryParams;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
 
-  const andConditions: any[] = [];
+  const whereCondition: any = {
+    organizationId, // MAIN FILTER
+  };
 
-  // ১. Name Search (Case-insensitive behavior in MySQL)
+  // Search by name
   if (name) {
-    andConditions.push({
-      name: {
-        contains: name,
-      },
-    });
+    whereCondition.name = {
+      contains: name,
+      mode: "insensitive", // PostgreSQL case-insensitive
+    };
   }
 
-  // ২. Status Filter (isActive)
+  // Filter by status
   if (status !== undefined && status !== "") {
-    andConditions.push({
-      isActive: status === "true" || status === true,
-    });
+    whereCondition.isActive =
+      status === "true" || status === true;
   }
-
-  // ৩. Organization Filter
-  if (organizationId) {
-    andConditions.push({
-      organizationId,
-    });
-  }
-
-  const whereCondition = andConditions.length > 0 ? { AND: andConditions } : {};
 
   const counters = await prisma.counter.findMany({
     where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
+
     orderBy: {
       [sortBy]: sortOrder,
     },
+
     include: {
       service: true,
       staff: true,
-      _count: {
-        select: { service: true, staff: true },
-      },
-    },
-  });
 
-  const globalServices = await prisma.service.findMany({
-    where: {
-      counterId: null,
-      isActive: true,
-      OR: organizationId ? [
-        { organizationId },
-        { organizationId: null }
-      ] : undefined
+      _count: {
+        select: {
+          service: true,
+          staff: true,
+        },
+      },
     },
   });
 
@@ -117,13 +93,8 @@ const getAllCountersFromDB = async (queryParams: Record<string, any>) => {
       total,
       totalPage: Math.ceil(total / Number(limit)),
     },
-    data: {
-      counters,
-      globalServices: globalServices.map((s) => ({
-        ...s,
-        scope: s.organizationId ? "ORGANIZATION" : "GLOBAL",
-      })),
-    },
+
+    data: counters,
   };
 };
 
@@ -137,29 +108,86 @@ const getSingleCounterFromDB = async (id: string) => {
 
 const updateCounterInDB = async (
   id: string,
-  data: Partial<ICounterRequest>
+  organizationId: string,
+  payload: Partial<ICounterRequest>
 ) => {
-  const isExist = await prisma.counter.findUnique({ where: { id } });
+  const isExist = await prisma.counter.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
+  });
+
   if (!isExist) {
-    throw new Error("Counter not found");
+    throw new Error("Counter not found or you don't have access to it");
   }
 
+  const updateData = pick(payload, ["name", "isActive"]);
+
+  if (updateData.name) {
+    const isNameExist = await prisma.counter.findFirst({
+      where: {
+        name: updateData.name,
+        organizationId,
+        NOT: {
+          id,
+        },
+      },
+    });
+
+    if (isNameExist) {
+      throw new Error("Counter name already exists in your organization");
+    }
+  }
+
+  // ৪. ডাটাবেজ আপডেট
   const result = await prisma.counter.update({
-    where: { id },
-    data,
+    where: {
+      id,
+    },
+    data: updateData,
   });
+
   return result;
 };
 
-const deleteCounterFromDB = async (id: string) => {
-  const isExist = await prisma.counter.findUnique({ where: { id } });
+const deleteCounterFromDB = async (
+  id: string,
+  organizationId: string
+) => {
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+  const isExist = await prisma.counter.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
+
+    include: {
+      service: true,
+      staff: true,
+    },
+  });
+
   if (!isExist) {
     throw new Error("Counter not found");
   }
 
+  // Prevent delete if related data exists
+  if (isExist.service.length > 0 || isExist.staff.length > 0) {
+    throw new Error(
+      "Cannot delete counter because services or staffs are assigned"
+    );
+  }
+
   const result = await prisma.counter.delete({
-    where: { id },
+    where: {
+      id,
+    },
   });
+
   return result;
 };
 

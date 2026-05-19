@@ -3,14 +3,13 @@ import catchAsync from "../../utils/catchAsync";
 import { EventService } from "./event.services";
 
 const createEvent = catchAsync(async (req, res) => {
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
   const payload = {
-    ...req.body,
+    ...data,
     creatorId: req.user?.id,
+    organizationId,
   };
-
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
 
   const result = await EventService.createEvent(payload);
 
@@ -22,13 +21,9 @@ const createEvent = catchAsync(async (req, res) => {
 });
 
 const getAllEvent = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-
-  const result = await EventService.getAllEvent(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.getAllEvent(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -39,8 +34,8 @@ const getAllEvent = catchAsync(async (req, res) => {
 
 const getSingleEventUser = catchAsync(async (req, res) => {
   const { id } = req.params;
-
-  const result = await EventService.getSingleEventUserFormDB(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.getSingleEventUserFormDB(id as string, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -51,8 +46,8 @@ const getSingleEventUser = catchAsync(async (req, res) => {
 
 const getSingleEventQuota = catchAsync(async (req, res) => {
   const { id } = req.params;
-
-  const result = await EventService.getSingleEventQuotaFormDB(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.getSingleEventQuotaFormDB(id as string, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -63,8 +58,12 @@ const getSingleEventQuota = catchAsync(async (req, res) => {
 
 const updateEvent = catchAsync(async (req, res) => {
   const { id } = req.params;
-
-  const result = await EventService.updateEvent(id as string, req.body);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.updateEvent(
+    id as string,
+    organizationId as string,
+    req.body
+  );
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -75,8 +74,11 @@ const updateEvent = catchAsync(async (req, res) => {
 
 const deleteEvent = catchAsync(async (req, res) => {
   const { id } = req.params;
-
-  const result = await EventService.deleteEvent(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.deleteEvent(
+    id as string,
+    organizationId as string
+  );
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -87,7 +89,11 @@ const deleteEvent = catchAsync(async (req, res) => {
 
 const lockEventController = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await EventService.lockEvent(id as string);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.lockEvent(
+    id as string,
+    organizationId as string
+  );
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -96,16 +102,10 @@ const lockEventController = catchAsync(async (req, res) => {
   });
 });
 
-
-
 const getEventAnalytics = catchAsync(async (req, res) => {
-  const query = { ...req.query };
-
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-
-  const result = await EventService.getEventAnalyticsFormDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.getEventAnalyticsFormDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -116,7 +116,12 @@ const getEventAnalytics = catchAsync(async (req, res) => {
 
 const getSingleEventAnalytics = catchAsync(async (req, res) => {
   const { id } = req.params;
-  const result = await EventService.getSingleEventAnalyticsFormDB(id as string, req.query);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.getSingleEventAnalyticsFormDB(
+    id as string,
+    req.query,
+    organizationId as string
+  );
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -126,7 +131,9 @@ const getSingleEventAnalytics = catchAsync(async (req, res) => {
 });
 
 const getAllEventUsers = catchAsync(async (req, res) => {
-  const result = await EventService.getAllEventUserFormDB(req.query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.getAllEventUserFormDB(query, organizationId as string);
 
   res.status(httpStatus.OK).json({
     success: true,
@@ -137,8 +144,12 @@ const getAllEventUsers = catchAsync(async (req, res) => {
 
 const deleteEventUser = catchAsync(async (req, res) => {
   const { eventId, userId } = req.body;
-
-  const result = await EventService.deleteeventUserFormDB(eventId as string, userId as string);
+  const organizationId = req.user?.organizationId;
+  const result = await EventService.deleteeventUserFormDB(
+    eventId as string,
+    userId as string,
+    organizationId as string
+  );
 
   res.status(httpStatus.OK).json({
     success: true,

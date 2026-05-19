@@ -3,8 +3,11 @@ import { generateCardCode } from "../user/user.utils";
 import { ICreateCard } from "./card.interface";
 
 
-const createCardInDB = async (data: ICreateCard) => {
-  const { type, cardUid: inputCardUid } = data;
+const createCardInDB = async (data: ICreateCard, user?: any) => {
+  const { type, cardUid: inputCardUid, organizationId } = data;
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
 
   if (type !== "NFC" && type !== "RFID" && type !== "VIRTUAL") {
     throw new Error("Invalid card type");
@@ -15,26 +18,24 @@ const createCardInDB = async (data: ICreateCard) => {
       throw new Error("Card UID is required");
     }
   }
+
   // check organization
-  if (data.organizationId) {
-    const organization = await prisma.organization.findUnique({
-      where: { id: data.organizationId },
-    });
-    if (!organization) {
-      throw new Error("Organization not found");
-    }
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+  });
+  if (!organization) {
+    throw new Error("Organization not found");
   }
 
   let cardUid: string | null = null;
   const cardCode = generateCardCode();
 
-  //  NFC/RFID
+  // NFC/RFID Check duplicates
   if (type === "NFC" || type === "RFID") {
     if (!inputCardUid) {
       throw new Error("Card UID is required for NFC/RFID");
     }
 
-    // check duplicate ONLY when input exists
     const isExist = await prisma.card.findUnique({
       where: { cardUid: inputCardUid },
     });
@@ -45,25 +46,28 @@ const createCardInDB = async (data: ICreateCard) => {
 
     cardUid = inputCardUid;
   }
+
   const result = await prisma.card.create({
     data: {
       type,
       cardUid,
       cardCode,
       status: "INACTIVE",
-      organizationId: data.organizationId,
+      organizationId,
     },
   });
 
   return result;
 };
 
-const getAllCardFormDB = async (queryParams: Record<string, any>) => {
+const getAllCardFormDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     cardUid,
     cardCode,
     status,
-    organizationId,
     fromDate,
     toDate,
     page = 1,
@@ -72,52 +76,54 @@ const getAllCardFormDB = async (queryParams: Record<string, any>) => {
     sortOrder = "desc",
   } = queryParams;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
 
-  const where: any = {};
-
-  if (organizationId) {
-    where.organizationId = organizationId;
-  }
+  const whereCondition: any = {
+    organizationId,
+  };
 
   // 🔹 Filtering Logic
   if (cardUid) {
-    where.cardUid = {
+    whereCondition.cardUid = {
       contains: cardUid,
     };
   }
 
   if (cardCode) {
-    where.cardCode = {
+    whereCondition.cardCode = {
       contains: cardCode,
     };
   }
 
   if (status) {
-    where.status = status;
+    whereCondition.status = status;
   }
 
   // 🔹 Date filter
   if (fromDate || toDate) {
-    where.createdAt = {};
+    whereCondition.createdAt = {};
 
     if (fromDate) {
       const start = new Date(fromDate);
       start.setHours(0, 0, 0, 0);
-      where.createdAt.gte = start;
+      whereCondition.createdAt.gte = start;
     }
 
     if (toDate) {
       const end = new Date(toDate);
       end.setHours(23, 59, 59, 999);
-      where.createdAt.lte = end;
+      whereCondition.createdAt.lte = end;
     }
   }
 
   // 🔹 Querying Database
   const data = await prisma.card.findMany({
-    where,
+    where: whereCondition,
     skip,
     take,
     orderBy: {
@@ -145,7 +151,7 @@ const getAllCardFormDB = async (queryParams: Record<string, any>) => {
 
   // 🔹 Total count for pagination meta
   const total = await prisma.card.count({
-    where,
+    where: whereCondition,
   });
 
   return {
@@ -197,11 +203,19 @@ const getVirtualInactiveCardFromDB = async (query: Record<string, any> = {}) => 
   return result;
 };
 
-const deleteCardFromDB = async (id: string) => {
+const deleteCardFromDB = async (id: string, user?: any) => {
   const isExist = await prisma.card.findUnique({ where: { id } });
   if (!isExist) {
     throw new Error("Card not found");
   }
+
+  // Enforce SaaS multi-tenancy check
+  if (user?.role !== "SUPER_ADMIN") {
+    if (!user?.organizationId || isExist.organizationId !== user?.organizationId) {
+      throw new Error("Forbidden Access! You do not have permission to delete this card.");
+    }
+  }
+
   if (isExist.status === "ACTIVE") {
     throw new Error("Cannot delete an active card");
   }

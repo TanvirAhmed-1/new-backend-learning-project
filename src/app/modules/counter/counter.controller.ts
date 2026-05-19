@@ -4,10 +4,9 @@ import catchAsync from "../../utils/catchAsync";
 import { CounterServices } from "./counter.services";
 
 const createCounter = catchAsync(async (req: Request, res: Response) => {
-  const payload = { ...req.body };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  }
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
   const result = await CounterServices.createCounterInDB(payload);
   res.status(httpStatus.OK).json({
     success: true,
@@ -17,11 +16,9 @@ const createCounter = catchAsync(async (req: Request, res: Response) => {
 });
 
 const getAllCounters = catchAsync(async (req: Request, res: Response) => {
-  const query = { ...req.query };
-  if (req.user?.role !== "SUPER_ADMIN") {
-    query.organizationId = req.user?.organizationId || undefined;
-  }
-  const result = await CounterServices.getAllCountersFromDB(query);
+  const query = req.query;
+  const organizationId = req.user?.organizationId;
+  const result = await CounterServices.getAllCountersFromDB(query, organizationId as string);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Counters fetched successfully",
@@ -41,7 +38,14 @@ const getSingleCounter = catchAsync(async (req: Request, res: Response) => {
 
 const updateCounter = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await CounterServices.updateCounterInDB(id as string, req.body);
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const result = await CounterServices.updateCounterInDB(
+    id as string,
+    organizationId as string,
+    data
+  );
+
   res.status(httpStatus.OK).json({
     success: true,
     message: "Counter updated successfully",
@@ -51,7 +55,14 @@ const updateCounter = catchAsync(async (req: Request, res: Response) => {
 
 const deleteCounter = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await CounterServices.deleteCounterFromDB(id as string);
+
+  const organizationId = req.user?.organizationId;
+
+  const result = await CounterServices.deleteCounterFromDB(
+    id as string,
+    organizationId as string
+  );
+
   res.status(httpStatus.OK).json({
     success: true,
     message: "Counter deleted successfully",

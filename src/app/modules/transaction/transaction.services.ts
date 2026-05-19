@@ -1,7 +1,10 @@
 import prisma from "../../utils/prisma";
 import { ITopupTransactionRequest } from "./transaction.interface";
 
-const getTransactionsFromDB = async (query: Record<string, any>) => {
+const getTransactionsFromDB = async (
+  query: Record<string, any>,
+  organizationId: string
+) => {
   const {
     page = 1,
     limit = 20,
@@ -9,38 +12,39 @@ const getTransactionsFromDB = async (query: Record<string, any>) => {
     userId,
     cardId,
     staffId,
-    organizationId,
     fromDate,
     toDate,
     orderBy = "createdAt",
     sortOrder = "desc",
   } = query;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
 
-  // 🔹 WHERE FILTER
-  const where: any = {};
+  const whereCondition: any = {
+    organizationId,
+  };
 
-  if (organizationId) where.organizationId = organizationId;
-
-  if (type) where.type = type;
-  if (userId) where.userId = userId;
-  if (cardId) where.cardId = cardId;
-  if (staffId) where.staffId = staffId;
+  if (type) whereCondition.type = type;
+  if (userId) whereCondition.userId = userId;
+  if (cardId) whereCondition.cardId = cardId;
+  if (staffId) whereCondition.staffId = staffId;
 
   // date filter (optional but powerful)
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
 
   // 🔹 QUERY
   const data = await prisma.transaction.findMany({
-    where,
+    where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: {
       [orderBy]: sortOrder,
     },
@@ -105,7 +109,7 @@ const getTransactionsFromDB = async (query: Record<string, any>) => {
       : null,
   }));
 
-  const total = await prisma.transaction.count({ where });
+  const total = await prisma.transaction.count({ where: whereCondition });
 
   return {
     meta: {
@@ -118,32 +122,35 @@ const getTransactionsFromDB = async (query: Record<string, any>) => {
   };
 };
 
-const getCounterWiseSalesFormDB = async (query: any) => {
+const getCounterWiseSalesFormDB = async (query: any, organizationId: string) => {
   const {
     fromDate,
     toDate,
-    organizationId,
     orderBy = "createdAt",
     sortOrder = "desc",
     page = 1,
     limit = 20,
   } = query;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
 
-  const where: any = {};
-
-  if (organizationId) where.organizationId = organizationId;
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (fromDate || toDate) {
-    where.createdAt = {};
-    if (fromDate) where.createdAt.gte = new Date(fromDate);
-    if (toDate) where.createdAt.lte = new Date(toDate);
+    whereCondition.createdAt = {};
+    if (fromDate) whereCondition.createdAt.gte = new Date(fromDate);
+    if (toDate) whereCondition.createdAt.lte = new Date(toDate);
   }
 
   const data = await prisma.transaction.findMany({
-    where,
+    where: whereCondition,
     skip,
     take,
     orderBy: {
@@ -186,7 +193,7 @@ const getCounterWiseSalesFormDB = async (query: any) => {
     netAmount: item.totalTopup - item.totalRefund - item.totalUsage,
   }));
 
-  const total = await prisma.transaction.count({ where });
+  const total = await prisma.transaction.count({ where: whereCondition });
 
   return {
     meta: {
@@ -199,43 +206,49 @@ const getCounterWiseSalesFormDB = async (query: any) => {
   };
 };
 
-const getDailyLedgerFormDB = async (query: Record<string, any>) => {
+const getDailyLedgerFormDB = async (
+  query: Record<string, any>,
+  organizationId: string
+) => {
   const {
     fromDate,
     toDate,
-    organizationId,
     orderBy = "createdAt",
     sortOrder = "desc",
     page = 1,
     limit = 20,
   } = query;
 
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
 
   // 🔥 1. Date Filter
-  const where: any = {};
-
-  if (organizationId) where.organizationId = organizationId;
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (fromDate || toDate) {
-    where.createdAt = {};
+    whereCondition.createdAt = {};
 
     if (fromDate) {
-      where.createdAt.gte = new Date(fromDate);
+      whereCondition.createdAt.gte = new Date(fromDate);
     }
 
     if (toDate) {
       // end of day fix
       const endDate = new Date(toDate);
       endDate.setHours(23, 59, 59, 999);
-      where.createdAt.lte = endDate;
+      whereCondition.createdAt.lte = endDate;
     }
   }
 
   // 🔥 2. Query with filter + order
   const data = await prisma.transaction.findMany({
-    where,
+    where: whereCondition,
     orderBy: {
       [orderBy]: sortOrder,
     },
@@ -308,16 +321,17 @@ const getDailyLedgerFormDB = async (query: Record<string, any>) => {
 };
 
 const topupTransactionFromDB = async (payload: ITopupTransactionRequest) => {
-  const { userId, cardUid, amount, staffId, counterId } = payload;
+  const { userId, cardUid, amount, staffId, counterId, organizationId } = payload;
 
+  if (!organizationId) throw new Error("Organization ID is required");
   if (!userId) throw new Error("userId is required");
   if (!cardUid) throw new Error("cardUid is required");
   if (!amount || amount <= 0) throw new Error("Amount must be greater than zero");
 
   return await prisma.$transaction(async (tx: any) => {
     // 1. Get the card & user
-    const card = await tx.card.findUnique({
-      where: { cardUid },
+    const card = await tx.card.findFirst({
+      where: { cardUid, organizationId },
       include: { user: true },
     });
 
@@ -327,6 +341,7 @@ const topupTransactionFromDB = async (payload: ITopupTransactionRequest) => {
     const user = card.user;
     if (!user) throw new Error("No user assigned to this card");
     if (user.id !== userId) throw new Error("This card is not assigned to the provided user");
+    if (user.organizationId !== organizationId) throw new Error("User does not belong to your organization");
     if (user.status !== "ACTIVE") throw new Error("User is not active");
 
     const balanceBefore = Number(user.balance);
@@ -346,7 +361,7 @@ const topupTransactionFromDB = async (payload: ITopupTransactionRequest) => {
         userId: user.id,
         cardId: card.id,
         eventId: user.activeEventId ?? null,
-        organizationId: payload.organizationId || null,
+        organizationId,
         staffId: staffId ?? null,
         counterId: counterId ?? null,
         type: "TOPUP",

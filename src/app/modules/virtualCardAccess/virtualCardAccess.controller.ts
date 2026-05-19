@@ -3,8 +3,10 @@ import catchAsync from "../../utils/catchAsync";
 import httpStatus from "http-status";
 
 const sendSMS = catchAsync(async (req, res) => {
+  const organizationId = req.user?.organizationId;
   const result = await VirtualCardAccessServices.sendVirtualCardSMS(
     req.params.id as string,
+    organizationId as string
   );
 
   res.status(httpStatus.OK).json({
@@ -15,7 +17,8 @@ const sendSMS = catchAsync(async (req, res) => {
 });
 
 const getVirtual = catchAsync(async (req, res) => {
-  const result = await VirtualCardAccessServices.getVirtualFormBD();
+  const organizationId = req.user?.organizationId;
+  const result = await VirtualCardAccessServices.getVirtualFormBD(organizationId as string);
   res.status(httpStatus.OK).json({
     success: true,
     message: "Virtual Card fetched successfully",

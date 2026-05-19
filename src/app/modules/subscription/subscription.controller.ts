@@ -23,14 +23,9 @@ const getAllPlans = catchAsync(async (req, res) => {
 });
 
 const buySubscription = catchAsync(async (req, res) => {
-  const payload = { ...req.body };
-
-  // Tenant locking - non-super admins can only purchase for their own organization
-  if (req.user?.role !== "SUPER_ADMIN") {
-    payload.organizationId = req.user?.organizationId;
-  } else if (!payload.organizationId) {
-    throw new Error("organizationId is required for SUPER_ADMIN purchases");
-  }
+  const data = req.body;
+  const organizationId = req.user?.organizationId;
+  const payload = { ...data, organizationId };
 
   const result = await SubscriptionServices.buySubscriptionInDB(payload);
 
@@ -42,18 +37,13 @@ const buySubscription = catchAsync(async (req, res) => {
 });
 
 const getOrganizationSubscription = catchAsync(async (req, res) => {
-  let orgId = req.params.orgId as string;
+  const organizationId = req.user?.organizationId;
 
-  // Tenant locking
-  if (req.user?.role !== "SUPER_ADMIN") {
-    orgId = req.user?.organizationId as string;
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
   }
 
-  if (!orgId) {
-    throw new Error("orgId parameter is required");
-  }
-
-  const result = await SubscriptionServices.getOrganizationSubscriptionFromDB(orgId);
+  const result = await SubscriptionServices.getOrganizationSubscriptionFromDB(organizationId);
 
   res.status(httpStatus.OK).json({
     success: true,

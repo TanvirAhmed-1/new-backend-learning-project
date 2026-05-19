@@ -1,9 +1,19 @@
+import { pick } from "../../utils/pick";
 import prisma from "../../utils/prisma";
 import { IServiceTypeRequest } from "./serviceType.interface";
 
 const createServiceTypeInDB = async (data: IServiceTypeRequest) => {
-  const isExist = await prisma.serviceType.findUnique({
-    where: { name: data.name },
+  const { name, organizationId } = data;
+
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.serviceType.findFirst({
+    where: {
+      name,
+      organizationId,
+    },
   });
 
   if (isExist) {
@@ -12,44 +22,48 @@ const createServiceTypeInDB = async (data: IServiceTypeRequest) => {
 
   const result = await prisma.serviceType.create({
     data: {
-      name: data.name,
-      organizationId: data.organizationId || null,
+      name,
+      organizationId,
     },
   });
 
   return result;
 };
 
-const getAllServiceTypesFromDB = async (queryParams: Record<string, any>) => {
+const getAllServiceTypesFromDB = async (
+  queryParams: Record<string, any>,
+  organizationId: string
+) => {
   const {
     name,
-    organizationId,
     page = 1,
     limit = 20,
     sortBy = "createdAt",
     sortOrder = "desc",
   } = queryParams;
 
-  const skip = (Number(page) - 1) * Number(limit);
-  const take = Number(limit);
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
 
-  const whereCondition: any = {};
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const whereCondition: any = {
+    organizationId,
+  };
 
   if (name) {
     whereCondition.name = {
       contains: name,
+      mode: "insensitive",
     };
-  }
-
-  if (organizationId) {
-    whereCondition.organizationId = organizationId;
   }
 
   //
   const data = await prisma.serviceType.findMany({
     where: whereCondition,
     skip,
-    take,
+    take: Number(limit),
     orderBy: {
       [sortBy]: sortOrder,
     },
@@ -99,20 +113,36 @@ const getSingleServiceTypeFromDB = async (id: string) => {
 
 const updateServiceTypeInDB = async (
   id: string,
-  data: Partial<IServiceTypeRequest>
+  organizationId: string,
+  payload: Partial<IServiceTypeRequest>,
 ) => {
-  const isExist = await prisma.serviceType.findUnique({
-    where: { id },
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.serviceType.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
   });
 
   if (!isExist) {
     throw new Error("Service type not found");
   }
 
+  const updateData = pick(payload, ["name"]);
+
   // optional duplicate check
-  if (data.name) {
-    const duplicate = await prisma.serviceType.findUnique({
-      where: { name: data.name },
+  if (updateData.name) {
+    const duplicate = await prisma.serviceType.findFirst({
+      where: {
+        name: {
+          equals: updateData.name,
+          mode: "insensitive",
+        },
+        organizationId,
+      },
     });
 
     if (duplicate && duplicate.id !== id) {
@@ -122,15 +152,22 @@ const updateServiceTypeInDB = async (
 
   const result = await prisma.serviceType.update({
     where: { id },
-    data,
+    data: updateData,
   });
 
   return result;
 };
 
-const deleteServiceTypeFromDB = async (id: string) => {
-  const isExist = await prisma.serviceType.findUnique({
-    where: { id },
+const deleteServiceTypeFromDB = async (id: string, organizationId: string) => {
+  if (!organizationId) {
+    throw new Error("Organization ID is required");
+  }
+
+  const isExist = await prisma.serviceType.findFirst({
+    where: {
+      id,
+      organizationId,
+    },
   });
 
   if (!isExist) {
