@@ -80,7 +80,6 @@ const deleteService = catchAsync(async (req, res) => {
 });
 
 const useService = catchAsync(async (req, res) => {
-  console.log(req.body);
   const result = await ServiceServices.useServiceFromDB(req.body);
 
   res.status(httpStatus.OK).json({

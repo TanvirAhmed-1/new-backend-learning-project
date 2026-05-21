@@ -9,7 +9,7 @@ import { UserRoutes } from "../modules/user/user.route";
 import { TransactionRoutes } from "../modules/transaction/transaction.route";
 import { eventRoutes } from "../modules/event/event.route";
 import { eventQuotaRoutes } from "../modules/eventQuota/eventQuota.route";
-import { VirtualCardAccessRoutes } from "../modules/virtualCardAccess/virtualCardAccess.route";
+import { NotificationRoutes } from "../modules/notification/notification.route";
 import { SubscriptionRoutes } from "../modules/subscription/subscription.route";
 import { DashboardRoutes } from "../modules/dashboard/dashboard.route";
 
@@ -26,7 +26,7 @@ const allRouters = [
   TransactionRoutes,
   eventRoutes,
   eventQuotaRoutes,
-  VirtualCardAccessRoutes,
+  NotificationRoutes,
   SubscriptionRoutes,
   DashboardRoutes,
 ];

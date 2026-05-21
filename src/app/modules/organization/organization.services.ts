@@ -140,12 +140,10 @@ const deleteOrganizationInDB = async (id: string, user?: any) => {
       },
     });
 
-    // 6. Delete Virtual Card Accesses
-    await tx.virtualCardAccess.deleteMany({
+    // 6. Delete Notifications
+    await tx.notification.deleteMany({
       where: {
-        user: {
-          organizationId: id,
-        },
+        organizationId: id,
       },
     });
 
